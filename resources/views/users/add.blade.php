@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{{ __('add_new_user') }}</title>
+
+    @extends('layouts.app')
+    @section('content')
+
+    <div class="page-body">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card" style="margin-top: 20px;">
+                        <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0">{{ __('add_new_user') }}</h4>
+                            <a href="{{ route('users.manage') }}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fa fa-arrow-left me-2"></i> {{ __('back_to_list') }}
+                            </a>
+                        </div>
+
+                        <div class="card-body">
+                            @if (session('success'))
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                {{ session('success') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                            @endif
+
+                            @if ($errors->any())
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <strong>Whoops!</strong> There were some problems with your input.
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                            @endif
+
+                            <form method="POST" enctype="multipart/form-data" action="{{ route('users.store') }}"
+                                class="theme-form">
+                                @csrf
+
+                                <div class="row g-4">
+                                    <div class="col-xxl-6 col-xl-6 col-lg-6 col-md-12">
+
+                                        <div class="mb-3">
+                                            <label class="col-form-label" for="name">{{ __('name') }} <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="text" name="name" id="name"
+                                                class="form-control @error('name') is-invalid @enderror"
+                                                value="{{ old('name') }}" placeholder="{{ __('name') }}" required
+                                                autofocus>
+                                            @error('name')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="col-form-label" for="email">{{ __('email') }} <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="email" name="email" id="email"
+                                                class="form-control @error('email') is-invalid @enderror"
+                                                value="{{ old('email') }}" placeholder="{{ __('email') }}" required>
+                                            @error('email')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                    </div>
+
+                                    <div class="col-xxl-6 col-xl-6 col-lg-6 col-md-12">
+
+                                        <div class="mb-3">
+                                            <label class="col-form-label" for="password">{{ __('password') }} <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="password" name="password" id="password"
+                                                class="form-control @error('password') is-invalid @enderror"
+                                                placeholder="{{ __('password') }}" required>
+                                            @error('password')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="col-form-label"
+                                                for="password_confirmation">{{ __('confirm_password') }} <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="password" name="password_confirmation"
+                                                id="password_confirmation" class="form-control"
+                                                placeholder="{{ __('confirm_password') }}" required>
+                                        </div>
+
+
+                                    </div>
+
+                                    <div class="col-xxl-6 col-xl-6 col-lg-6 col-md-12">
+
+                                        <div class="mb-3">
+                                            <label class="col-form-label" for="role_id">{{ __('role') }}</label>
+                                            <select name="role_id" id="role_id" class="form-select">
+                                                <option value="">Select Role</option>
+                                                @foreach($roles as $role)
+                                                <option value="{{ $role->id }}"
+                                                    {{ old('role_id') == $role->id ? 'selected' : '' }}>
+                                                    {{ $role->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="col-form-label" for="organization_ids">{{ __('branches') }}</label>
+                                            <select name="organization_ids[]" id="organization_ids" class="form-select branch-multiselect @error('organization_ids') is-invalid @enderror @error('organization_ids.*') is-invalid @enderror" multiple>
+                                                @foreach($organizations as $organization)
+                                                    <option value="{{ $organization->id }}" {{ collect(old('organization_ids', []))->contains($organization->id) ? 'selected' : '' }}>
+                                                        {{ $organization->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <div class="form-text">{{ __('user_branches_help') }}</div>
+                                            @error('organization_ids')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                            @error('organization_ids.*')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="col-xxl-6 col-xl-6 col-lg-6 col-md-12 d-flex align-items-center">
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" name="status"
+                                                        id="status" value="1" {{ old('status', 1) ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="status">{{ __('status') }}
+                                                        ({{ __('active') }})</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <div class="col-xxl-6 col-xl-6 col-lg-6 col-md-12">
+                                        <div class="mb-3">
+                                            <label class="col-form-label" for="image">{{ __('user_image') }}</label>
+                                            <input type="file" name="image" id="image"
+                                                class="form-control @error('image') is-invalid @enderror">
+                                            @error('image')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="text-end">
+                                    <button type="submit" class="btn btn-primary px-5">
+                                        <i class="fa fa-save me-2"></i> {{ __('save_user') }}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @endsection
+
+    @push('styles')
+        <link rel="stylesheet" href="{{ asset('public/assets/css/vendors/select2.css') }}">
+    @endpush
+
+    @push('scripts')
+        <script src="{{ asset('public/assets/js/select2/select2.full.min.js') }}"></script>
+        <script>
+            $(document).ready(function () {
+                $('.branch-multiselect').select2({
+                    width: '100%',
+                    placeholder: @json(__('select_branches')),
+                    closeOnSelect: false
+                });
+            });
+        </script>
+    @endpush
