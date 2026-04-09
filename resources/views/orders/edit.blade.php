@@ -5,10 +5,17 @@
     <div class="container-fluid">
         <div class="page-title">
             <div class="row">
-                <div class="col-6">
-                    <h3>{{ __('edit_order') }} - {{ $order->order_number ?: ('#' . $order->id) }}</h3>
+        <div class="col-6">
+            <h3>{{ __('edit_order') }} - {{ $order->order_number ?: ('#' . $order->id) }}</h3>
+        </div>
+        @if($order->admin_updated)
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    {{ __('order_updated_by_admin_note') }}
                 </div>
             </div>
+        @endif
+    </div>
         </div>
 
         <div class="row">
@@ -26,6 +33,7 @@
                                         <th>{{ __('quantity') }}</th>
                                         <th class="text-end">{{ __('unit_price') }}</th>
                                         <th class="text-end">{{ __('line_total') }}</th>
+                                        <th class="text-end">{{ __('new_item_price') }}</th>
                                         <th class="text-center">{{ __('action') }}</th>
                                     </tr>
                                 </thead>
@@ -58,6 +66,9 @@
                                         <td>{{ $item->quantity }}</td>
                                         <td class="text-end">{{ number_format($item->unit_price, 2) }}</td>
                                         <td class="text-end">{{ number_format($item->line_total, 2) }}</td>
+                                        <td class="text-end new-addon-price" data-item-id="{{ $item->id }}">
+                                            {{ number_format($item->addition_amount ?? 0, 2) }}
+                                        </td>
                                         <td class="text-center">
                                             <div class="d-flex gap-1 justify-content-center">
                                                 <button type="button" class="btn btn-info btn-sm js-edit-existing" title="{{ __('edit') }}">
@@ -73,7 +84,7 @@
                                 </tbody>
                                 <tfoot class="table-light">
                                     <tr>
-                                        <td colspan="5">
+                                        <td colspan="6">
                                             <div class="d-flex gap-2">
                                                 <select id="productSelect" class="form-select select2">
                                                     <option value="">{{ __('select_products') }}</option>
@@ -119,6 +130,14 @@
                                 <span class="h5 mb-0">{{ __('grand_total') }}</span>
                                 <span class="h5 mb-0 text-primary" id="lblGrandTotal">{{ number_format($order->grand_total, 2) }}</span>
                             </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center bg-white border-0 px-0 pt-0">
+                                <span class="text-muted">{{ __('additional_payment_required') }}</span>
+                                <span class="fw-bold" id="lblAdditionalCharges">0.00</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-0 px-0 pb-0">
+                                <span class="text-muted">{{ __('additional_tax') }}</span>
+                                <span class="fw-bold" id="lblAdditionalTax">0.00</span>
+                            </li>
                         </ul>
 
                         <div class="alert alert-info border-3 border-start">
@@ -140,6 +159,16 @@
                                 <i class="fa fa-save me-2"></i> {{ __('update_order') }}
                             </button>
                         </form>
+                    </div>
+                </div>
+                <div class="card mt-3">
+                    <div class="card-header pb-0">
+                        <h6>{{ __('change_history') }}</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div id="historyContainer" class="list-group list-group-flush">
+                            <div class="text-muted small">{{ __('history_empty') }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -179,6 +208,24 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+@php
+    $historyEntries = [];
+    foreach ($order->items as $item) {
+        $additionAmount = (float) ($item->addition_amount ?? 0);
+        $additionTax = (float) ($item->addition_tax ?? 0);
+        if ($additionAmount <= 0 && $additionTax <= 0) {
+            continue;
+        }
+
+        $historyEntries[] = [
+            'item' => $item->title,
+            'source_key' => $additionAmount > 0 && abs($additionAmount - (float) $item->line_total) < 0.01 ? 'newItem' : 'addonUpdate',
+            'addons' => $item->addons ?? [],
+            'amount' => $additionAmount,
+            'tax' => $additionTax,
+        ];
+    }
+@endphp
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const productSelect = $('#productSelect').select2({
@@ -188,10 +235,12 @@
 
         let newItems = [];
         let deletedExistingIds = [];
+        let existingAddonUpdates = {};
         const originalPaidAmount = {{ $order->amount_paid }};
         const originalSubtotal = {{ $order->subtotal }};
+        const originalVatAmount = {{ $order->vat_amount }};
         const originalGrandTotal = {{ $order->grand_total }};
-        const vatRate = @json(\App\Models\Tax::where('status', true)->orderBy('id')->first()?->amount ?? 0);
+        const vatRate = parseFloat(@json(\App\Models\Tax::where('status', true)->orderBy('id')->first()?->amount ?? 0)) || 0;
         const vatType = @json(\App\Models\Tax::where('status', true)->orderBy('id')->first()?->calculation_type ?? 'percentage');
         const shippingCosts = {{ $order->shipping_costs }}; // Keep shipping as is for now or recalculate if needed
 
@@ -202,6 +251,10 @@
         const confirmAddons = document.getElementById('confirmAddons');
         const itemsTableBody = document.querySelector('#itemsTable tbody');
         const editOrderForm = document.getElementById('editOrderForm');
+        const lblAdditionalCharges = document.getElementById('lblAdditionalCharges');
+        const lblAdditionalTax = document.getElementById('lblAdditionalTax');
+        const historyContainer = document.getElementById('historyContainer');
+        const preexistingHistoryEntries = @json($historyEntries);
 
         let pendingProduct = null;
         let isEditingExisting = false;
@@ -252,6 +305,7 @@
                     selectedValueIds.push(String(group.value_id));
                 }
             });
+            const existingAddonValueIds = [...new Set(selectedValueIds)];
 
             const product = allProducts.find(p => p.id == productId);
             if (!product) return;
@@ -262,6 +316,8 @@
                 price: parseFloat(product.price) || 0,
                 addons: []
             };
+            pendingProduct.currentAddons = currentAddons;
+            pendingProduct.existingAddonValueIds = existingAddonValueIds;
 
             isEditingExisting = true;
             editingRowId = rowId;
@@ -306,34 +362,145 @@
 
         confirmAddons.addEventListener('click', function() {
             const selectedAddonInputs = addonContainer.querySelectorAll('.addon-input:checked');
+            const existingIds = new Set(pendingProduct.existingAddonValueIds || []);
+            const addedAddons = [];
+            let addonTotal = 0;
+
             selectedAddonInputs.forEach(input => {
-                pendingProduct.addons.push({
-                    value_id: input.value,
+                const valueId = String(input.value);
+                const price = parseFloat(input.getAttribute('data-price')) || 0;
+                const addonData = {
+                    value_id: valueId,
                     title: input.getAttribute('data-title'),
                     addon_title: input.getAttribute('data-addon-title'),
-                    price: parseFloat(input.getAttribute('data-price'))
-                });
+                    price,
+                    is_existing: existingIds.has(valueId)
+                };
+                pendingProduct.addons.push(addonData);
+
+                if (!addonData.is_existing) {
+                    addonTotal += price;
+                    addedAddons.push(addonData);
+                }
             });
 
             if (isEditingExisting && editingRowId) {
-                // Mark original for deletion
-                if (!deletedExistingIds.includes(String(editingRowId))) {
-                    deletedExistingIds.push(String(editingRowId));
-                    const row = document.querySelector(`.existing-item[data-id="${editingRowId}"]`);
-                    if (row) row.classList.add('d-none');
+                if (addonTotal > 0) {
+                    const addonTax = calculateAdditionTax(addonTotal);
+                    existingAddonUpdates[editingRowId] = {
+                        title: pendingProduct.title,
+                        amount: addonTotal,
+                        addons: addedAddons,
+                        tax: addonTax,
+                        source_key: 'addonUpdate'
+                    };
+                } else {
+                    delete existingAddonUpdates[editingRowId];
                 }
+
+                const row = document.querySelector(`.existing-item[data-id="${editingRowId}"]`);
+                if (row) {
+                    const priceCell = row.querySelector(`.new-addon-price[data-item-id="${editingRowId}"]`);
+                    if (priceCell) {
+                        priceCell.textContent = addonTotal.toFixed(2);
+                    }
+                    const mergedAddons = [...(pendingProduct.currentAddons || []), ...addedAddons];
+                    row.dataset.currentAddons = JSON.stringify(mergedAddons);
+                    $(row).data('current-addons', mergedAddons);
+                }
+
+                addonModal.hide();
+                pendingProduct = null;
+                isEditingExisting = false;
+                editingRowId = null;
+                updateTotals();
+                return;
             }
 
             addItemToTable(pendingProduct);
             addonModal.hide();
             pendingProduct = null;
-            isEditingExisting = false;
-            editingRowId = null;
         });
 
+        const historyTexts = {
+            newItem: @json(__('history_new_item')),
+            addonUpdate: @json(__('history_addon_update')),
+            empty: @json(__('history_empty')),
+            productTax: @json(__('history_product_tax'))
+        };
+
+        function calculateAdditionTax(amount) {
+            const numericAmount = parseFloat(amount) || 0;
+            if (!numericAmount) {
+                return 0;
+            }
+
+            if (vatType === 'percentage') {
+                return numericAmount * (vatRate / 100);
+            }
+
+            return vatRate;
+        }
+
+        function formatCurrency(value) {
+            return (Number(value) || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function formatAddons(addons) {
+            if (!addons || !addons.length) return '-';
+            return addons.map(addon => `${addon.addon_title || addon.title}: ${addon.title}`).join(' • ');
+        }
+
+        function renderHistory() {
+            if (!historyContainer) return;
+            const runtimeEntries = [];
+
+            newItems.forEach(item => {
+                runtimeEntries.push({
+                    item: item.title,
+                    amount: item.addition_amount,
+                    tax: item.addition_tax
+                });
+            });
+
+            Object.values(existingAddonUpdates).forEach(entry => {
+                if (!entry.amount && !entry.tax) return;
+                runtimeEntries.push({
+                    item: entry.title || historyTexts.addonUpdate,
+                    amount: entry.amount,
+                    tax: entry.tax
+                });
+            });
+
+            const allEntries = [
+                ...preexistingHistoryEntries,
+                ...runtimeEntries
+            ];
+
+            if (!allEntries.length) {
+                historyContainer.innerHTML = `<div class="text-muted small">${historyTexts.empty}</div>`;
+                return;
+            }
+
+            historyContainer.innerHTML = allEntries.map(entry => `
+                <div class="list-group-item bg-white shadow-sm rounded-3 border-0 px-3 py-3 mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <strong class="text-dark">${entry.item}</strong>
+                        <div class="text-success fw-bold">${formatCurrency(entry.amount)}</div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center small text-muted">
+                        <span>${historyTexts.productTax || 'Tax'}</span>
+                        <span class="text-info fw-semibold">${formatCurrency(entry.tax)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         function addItemToTable(product) {
-            let itemUnitPrice = parseFloat(product.price) || 0;
-            product.addons.forEach(a => itemUnitPrice += (parseFloat(a.price) || 0));
+            const addonTotal = product.addons.reduce((sum, addon) => sum + (parseFloat(addon.price) || 0), 0);
+            const itemUnitPrice = (parseFloat(product.price) || 0) + addonTotal;
+            const additionAmount = itemUnitPrice;
+            const additionTax = calculateAdditionTax(additionAmount);
 
             const item = {
                 product_id: product.id,
@@ -341,6 +508,8 @@
                 unit_price: itemUnitPrice,
                 quantity: 1,
                 line_total: itemUnitPrice,
+                addition_amount: additionAmount,
+                addition_tax: additionTax,
                 addons: product.addons,
                 uid: Date.now()
             };
@@ -360,6 +529,7 @@
                     <td>1</td>
                     <td class="text-end">${item.unit_price.toFixed(2)}</td>
                     <td class="text-end">${item.line_total.toFixed(2)}</td>
+                    <td class="text-end">${item.addition_amount.toFixed(2)}</td>
                     <td class="text-center">
                         <button type="button" class="btn btn-outline-danger btn-sm js-remove-new" data-uid="${item.uid}">
                             <i class="fa fa-times"></i>
@@ -395,6 +565,11 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     deletedExistingIds.push(String(id));
+                    delete existingAddonUpdates[id];
+                    const priceCell = document.querySelector(`.new-addon-price[data-item-id="${id}"]`);
+                    if (priceCell) {
+                        priceCell.textContent = '0.00';
+                    }
                     btn.closest('tr').addClass('d-none');
                     updateTotals();
                 }
@@ -417,34 +592,47 @@
 
             // Add new items
             newItems.forEach(i => currentSubtotal += (parseFloat(i.line_total) || 0));
-
-            let currentVat = 0;
-            const parsedVatRate = parseFloat(vatRate) || 0;
-            if (vatType === 'percentage') {
-                currentVat = currentSubtotal * (parsedVatRate / 100);
-            } else {
-                currentVat = parsedVatRate;
-            }
-
-            const currentGrandTotal = currentSubtotal + currentVat + (parseFloat(shippingCosts) || 0);
-            const balanceDue = Math.max(currentGrandTotal - originalGrandTotal, 0);
+            const existingAddonTotal = Object.values(existingAddonUpdates).reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+            currentSubtotal += existingAddonTotal;
+            const newItemsAdditionTotal = newItems.reduce((sum, item) => sum + (parseFloat(item.addition_amount) || 0), 0);
+            const newItemsTaxTotal = newItems.reduce((sum, item) => sum + (parseFloat(item.addition_tax) || 0), 0);
+            const existingAddonTaxTotal = Object.values(existingAddonUpdates).reduce((sum, entry) => sum + (parseFloat(entry.tax) || 0), 0);
+            const additionAmountTotal = newItemsAdditionTotal + existingAddonTotal;
+            const additionTaxTotal = newItemsTaxTotal + existingAddonTaxTotal;
+            const currentVat = parseFloat(originalVatAmount) + additionTaxTotal;
+            const currentGrandTotal = parseFloat(originalGrandTotal) + additionAmountTotal + additionTaxTotal;
+            const balanceDue = Math.round(Math.max(additionAmountTotal + additionTaxTotal, 0) * 100) / 100;
 
             document.getElementById('lblSubtotal').textContent = currentSubtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('lblVat').textContent = currentVat.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('lblGrandTotal').textContent = currentGrandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('lblBalance').textContent = balanceDue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (lblAdditionalCharges) {
+                lblAdditionalCharges.textContent = additionAmountTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+            if (lblAdditionalTax) {
+                lblAdditionalTax.textContent = additionTaxTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
 
             if (balanceDue > 0.01) {
                 document.getElementById('lblBalance').classList.add('text-danger');
             } else {
                 document.getElementById('lblBalance').classList.remove('text-danger');
             }
+            renderHistory();
         }
 
         editOrderForm.addEventListener('submit', function(e) {
+            const existingPayload = Object.entries(existingAddonUpdates).map(([id, payload]) => ({
+                id,
+                amount: payload.amount,
+                addons: payload.addons,
+                tax: payload.tax
+            }));
             const data = {
                 new_items: newItems,
-                deleted_ids: deletedExistingIds
+                deleted_ids: deletedExistingIds,
+                existing_addons: existingPayload
             };
             document.getElementById('itemsJson').value = JSON.stringify(data);
         });

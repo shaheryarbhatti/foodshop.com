@@ -22,7 +22,8 @@ class Order extends Model
         'address', 'city', 'postal_code', 'country', 'different_delivery_address',
         'order_type', 'order_notes', 'payment_method', 'payment_gateway', 'payment_status', 'order_status',
         'payment_reference', 'payment_currency', 'payment_payload',
-        'subtotal', 'shipping_costs', 'vat_amount', 'grand_total'
+        'subtotal', 'shipping_costs', 'vat_amount', 'grand_total',
+        'amount_paid', 'extra_amount_paid', 'admin_updated'
     ];
 
     protected $casts = [
@@ -31,6 +32,8 @@ class Order extends Model
         'delivery_distance_km' => 'decimal:2',
         'customer_latitude' => 'decimal:7',
         'customer_longitude' => 'decimal:7',
+        'admin_updated' => 'boolean',
+        'extra_amount_paid' => 'decimal:2',
     ];
 
     protected static function booted(): void

@@ -266,6 +266,9 @@ class FrontendCheckoutController extends Controller
             ];
         }
 
+        $amountPaid = $paymentStatus === 'paid' ? $grandTotal : null;
+        $orderStatus = $paymentStatus === 'paid' ? Order::STATUS_PROCESSING : Order::STATUS_PENDING_PAYMENT;
+
         return DB::transaction(function () use (
             $validated,
             $subtotal,
@@ -278,7 +281,9 @@ class FrontendCheckoutController extends Controller
             $paymentStatus,
             $paymentReference,
             $paymentPayload,
-            $currentCurrency
+            $currentCurrency,
+            $orderStatus,
+            $amountPaid
         ) {
             $order = Order::create([
                 'customer_id' => session('frontend_customer_id'),
@@ -305,6 +310,8 @@ class FrontendCheckoutController extends Controller
                 'payment_reference' => $paymentReference,
                 'payment_currency' => strtoupper($currentCurrency?->code ?: 'USD'),
                 'payment_payload' => $paymentPayload,
+                'order_status' => $orderStatus,
+                'amount_paid' => $amountPaid,
                 'subtotal' => $subtotal,
                 'shipping_costs' => $shippingCosts,
                 'vat_amount' => $vatAmount,

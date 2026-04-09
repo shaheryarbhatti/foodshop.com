@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -197,8 +198,35 @@ class OrderController extends Controller
         $data = json_decode($validated['items_json'], true);
         $newItemsData = $data['new_items'] ?? [];
         $deletedIds = $data['deleted_ids'] ?? [];
+        $existingAddonsData = $data['existing_addons'] ?? [];
 
-        return DB::transaction(function () use ($order, $newItemsData, $deletedIds, $pricingService) {
+        return DB::transaction(function () use ($order, $newItemsData, $deletedIds, $existingAddonsData, $pricingService) {
+            $existingAddonTotal = 0;
+            $existingAddonTaxTotal = 0;
+            if (!empty($existingAddonsData)) {
+                foreach ($existingAddonsData as $entry) {
+                    $item = OrderItem::where('order_id', $order->id)->where('id', $entry['id'] ?? null)->first();
+                    if (!$item) {
+                        continue;
+                    }
+
+                    $additionAmount = max(0, (float) ($entry['amount'] ?? 0));
+                    $additionTax = max(0, (float) ($entry['tax'] ?? 0));
+                    $existingAddonTotal += $additionAmount;
+                    $existingAddonTaxTotal += $additionTax;
+
+                    $currentAddons = $item->addons;
+                    if (is_string($currentAddons)) {
+                        $currentAddons = json_decode($currentAddons, true) ?: [];
+                    }
+
+                    $item->addons = array_values(array_merge($currentAddons ?: [], $entry['addons'] ?? []));
+                    $item->addition_amount = $additionAmount;
+                    $item->addition_tax = $additionTax;
+                    $item->save();
+                }
+            }
+
             // Delete removed items
             if (!empty($deletedIds)) {
                 $order->items()->whereIn('id', $deletedIds)->delete();
@@ -206,7 +234,7 @@ class OrderController extends Controller
 
             // Create new items
             foreach ($newItemsData as $newItem) {
-                \App\Models\OrderItem::create([
+                OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $newItem['product_id'],
                     'title' => $newItem['title'],
@@ -214,6 +242,8 @@ class OrderController extends Controller
                     'unit_price' => $newItem['unit_price'],
                     'line_total' => $newItem['line_total'],
                     'addons' => $newItem['addons'] ?? null,
+                    'addition_amount' => $newItem['addition_amount'] ?? 0,
+                    'addition_tax' => $newItem['addition_tax'] ?? 0,
                 ]);
             }
 
@@ -226,10 +256,11 @@ class OrderController extends Controller
             );
 
             $order->update([
-                'subtotal' => $totals['subtotal'],
+                'subtotal' => $totals['subtotal'] + $existingAddonTotal,
                 'shipping_costs' => $totals['shipping_costs'],
-                'vat_amount' => $totals['vat_amount'],
-                'grand_total' => $totals['grand_total'],
+                'vat_amount' => $totals['vat_amount'] + $existingAddonTaxTotal,
+                'grand_total' => $totals['grand_total'] + $existingAddonTotal + $existingAddonTaxTotal,
+                'admin_updated' => true,
             ]);
 
             $message = __('order_updated_successfully');

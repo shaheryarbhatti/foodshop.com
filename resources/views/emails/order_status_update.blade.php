@@ -30,21 +30,21 @@
                             <p style="margin:0; color:#6b7280; font-size:14px; line-height:1.6; white-space:pre-line;">{!! nl2br(e($customBody)) !!}</p>
                         </td>
                     </tr>
-                    
+
                     @if(isset($payment_link))
-                    <tr>
+                    <!-- <tr>
                         <td align="center" style="padding:22px 28px 10px;">
                             <a href="{{ $payment_link }}" style="background:#2563eb; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:10px; display:inline-block; font-weight:700; font-size:14px;">Pay Now</a>
                         </td>
-                    </tr>
+                    </tr> -->
                     @endif
 
                     @if(isset($invoice_link))
-                    <tr>
+                    <!-- <tr>
                         <td align="center" style="padding:22px 28px 10px;">
                             <a href="{{ $invoice_link }}" style="background:#6366f1; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:10px; display:inline-block; font-weight:700; font-size:14px;">View Invoice</a>
                         </td>
-                    </tr>
+                    </tr> -->
                     @endif
 
                     <tr>

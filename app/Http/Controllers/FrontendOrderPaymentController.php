@@ -108,6 +108,7 @@ class FrontendOrderPaymentController extends Controller
                     'payment_status' => 'paid',
                     'payment_reference' => $paymentVerification['reference'],
                     'payment_payload' => array_merge((array)$order->payment_payload, ['balance_payment' => $paymentVerification['payload']]),
+                    'extra_amount_paid' => ($order->extra_amount_paid ?? 0) + $balance,
                 ]);
             } else {
                 // Manual payment (Bank Account, etc.)
@@ -115,6 +116,7 @@ class FrontendOrderPaymentController extends Controller
                     'payment_status' => 'pending_verification', // New status or existing? 
                     'payment_method' => $paymentMethod['code'],
                     'remarks' => ($order->remarks ? $order->remarks . "\n" : "") . "Customer requested balance payment via " . $paymentMethod['title'],
+                    'extra_amount_paid' => null,
                 ]);
 
                 return redirect()->route('frontend.checkout.success')->with('frontend_checkout_success', true)->with('success', __('manual_payment_instruction_sent'));
