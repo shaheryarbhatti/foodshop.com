@@ -126,8 +126,8 @@
                                 <span>{{ __('amount_paid') }}</span>
                                 <span class="fw-bold">{{ number_format($order->amount_paid, 2) }}</span>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center h5 mb-0">
-                                <span>{{ __('balance') }}</span>
+                        <div class="d-flex justify-content-between align-items-center h5 mb-0">
+                            <span>{{ __('new_balance') }}</span>
                                 <span class="fw-bold text-danger" id="lblBalance">0.00</span>
                             </div>
                         </div>
@@ -190,6 +190,7 @@
         let deletedExistingIds = [];
         const originalPaidAmount = {{ $order->amount_paid }};
         const originalSubtotal = {{ $order->subtotal }};
+        const originalGrandTotal = {{ $order->grand_total }};
         const vatRate = @json(\App\Models\Tax::where('status', true)->orderBy('id')->first()?->amount ?? 0);
         const vatType = @json(\App\Models\Tax::where('status', true)->orderBy('id')->first()?->calculation_type ?? 'percentage');
         const shippingCosts = {{ $order->shipping_costs }}; // Keep shipping as is for now or recalculate if needed
@@ -426,14 +427,14 @@
             }
 
             const currentGrandTotal = currentSubtotal + currentVat + (parseFloat(shippingCosts) || 0);
-            const balance = currentGrandTotal - (parseFloat(originalPaidAmount) || 0);
+            const balanceDue = Math.max(currentGrandTotal - originalGrandTotal, 0);
 
             document.getElementById('lblSubtotal').textContent = currentSubtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('lblVat').textContent = currentVat.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('lblGrandTotal').textContent = currentGrandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('lblBalance').textContent = balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('lblBalance').textContent = balanceDue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-            if (balance > 0.01) {
+            if (balanceDue > 0.01) {
                 document.getElementById('lblBalance').classList.add('text-danger');
             } else {
                 document.getElementById('lblBalance').classList.remove('text-danger');

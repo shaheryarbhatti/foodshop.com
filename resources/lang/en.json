@@ -864,6 +864,7 @@
     "line_total": "Line Total",
     "amount_paid": "Amount Paid",
     "balance": "Balance",
+    "new_balance": "New Balance",
     "additional_payment_required": "Additional Payment Required",
     "pay_now": "Pay Now",
     "payment_link_generated": "Payment link generated",

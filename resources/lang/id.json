@@ -861,6 +861,7 @@
     "line_total": "Total Baris",
     "amount_paid": "Jumlah Terbayar",
     "balance": "Sisa",
+    "new_balance": "Saldo Baru",
     "additional_payment_required": "Diperlukan Pembayaran Tambahan",
     "pay_now": "Bayar Sekarang",
     "payment_link_generated": "Tautan pembayaran telah dibuat",
