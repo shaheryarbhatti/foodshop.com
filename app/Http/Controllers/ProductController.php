@@ -5,8 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
-
 use App\Models\Allergy;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProductController extends Controller
 {
@@ -177,6 +182,114 @@ class ProductController extends Controller
         return redirect()->route('products.manage')->with('success', __('all_products_deleted_successfully'));
     }
 
+    public function exportExcel(): StreamedResponse
+    {
+        $this->authorizeAction('products.manage');
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Products');
+
+        $headers = ['Product ID', 'Product Title', 'Price', 'Description'];
+        foreach ($headers as $index => $header) {
+            $column = Coordinate::stringFromColumnIndex($index + 1);
+            $sheet->setCellValue($column . '1', $header);
+        }
+
+        $products = Product::query()
+            ->orderBy('id')
+            ->get(['id', 'title', 'base_price', 'description']);
+
+        $row = 2;
+        foreach ($products as $product) {
+            $sheet->setCellValue("A{$row}", $product->id);
+            $sheet->setCellValue("B{$row}", $product->title);
+            $sheet->setCellValue("C{$row}", (float) $product->base_price);
+            $sheet->setCellValue("D{$row}", (string) ($product->description ?? ''));
+            $row++;
+        }
+
+        foreach (range(1, count($headers)) as $columnIndex) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($columnIndex))->setAutoSize(true);
+        }
+
+        $fileName = 'products-bulk-update-' . now()->format('Y-m-d-His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function importExcel(Request $request)
+    {
+        $this->authorizeAction('products.edit');
+
+        $validated = $request->validate([
+            'products_excel_file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        $spreadsheet = IOFactory::load($validated['products_excel_file']->getRealPath());
+        $rows = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+
+        if (count($rows) <= 1) {
+            return redirect()->route('products.manage')->with('error', __('products_excel_empty_file'));
+        }
+
+        $updatedCount = 0;
+
+        DB::transaction(function () use ($rows, &$updatedCount) {
+            foreach (array_slice($rows, 1) as $row) {
+                $productId = isset($row['A']) ? (int) trim((string) $row['A']) : 0;
+                if ($productId <= 0) {
+                    continue;
+                }
+
+                $product = Product::find($productId);
+                if (! $product) {
+                    continue;
+                }
+
+                $title = trim((string) ($row['B'] ?? ''));
+                $priceCell = $row['C'] ?? null;
+                $description = trim((string) ($row['D'] ?? ''));
+
+                if ($title === '') {
+                    continue;
+                }
+
+                if ($priceCell === null || $priceCell === '') {
+                    continue;
+                }
+
+                $price = is_numeric($priceCell) ? (float) $priceCell : (float) preg_replace('/[^0-9.\-]/', '', (string) $priceCell);
+                if ($price < 0) {
+                    $price = 0;
+                }
+
+                $updateData = [
+                    'title' => $title,
+                    'base_price' => $price,
+                    'description' => $description,
+                ];
+
+                if ($product->title !== $title) {
+                    $updateData['permalink'] = $this->generateUniquePermalink($title, $product->id);
+                }
+
+                $product->update($updateData);
+                $updatedCount++;
+            }
+        });
+
+        return redirect()->route('products.manage')->with(
+            'success',
+            trans_choice('products_excel_import_success', $updatedCount, ['count' => $updatedCount])
+        );
+    }
+
     private function authorizeAction(string $permission): void
     {
         $user = auth()->user();
@@ -199,5 +312,25 @@ class ProductController extends Controller
             'base_price' => 'required|numeric|min:0',
             'status' => 'required|boolean',
         ]);
+    }
+
+    private function generateUniquePermalink(string $title, ?int $ignoreProductId = null): string
+    {
+        $base = Str::slug($title);
+        $base = $base !== '' ? $base : 'product';
+        $permalink = $base;
+        $counter = 2;
+
+        while (
+            Product::query()
+                ->when($ignoreProductId, fn ($query) => $query->where('id', '!=', $ignoreProductId))
+                ->where('permalink', $permalink)
+                ->exists()
+        ) {
+            $permalink = $base . '-' . $counter;
+            $counter++;
+        }
+
+        return $permalink;
     }
 }

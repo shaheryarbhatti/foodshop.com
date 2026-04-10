@@ -22,6 +22,17 @@ if ($aggressive) {
 
 function minifyViewHtml(string $html, bool $medium): string
 {
+    $preservedBlocks = [];
+    $html = preg_replace_callback(
+        '/<(script|style|pre|textarea)\b[^>]*>.*?<\/\1>/is',
+        static function (array $matches) use (&$preservedBlocks): string {
+            $placeholder = '___OBFUSCATE_BLOCK_' . count($preservedBlocks) . '___';
+            $preservedBlocks[$placeholder] = $matches[0];
+            return $placeholder;
+        },
+        $html
+    );
+
     $html = preg_replace('/<!--.*?-->/s', '', $html);
     if ($medium) {
         // Strip Blade comments
@@ -29,7 +40,13 @@ function minifyViewHtml(string $html, bool $medium): string
     }
     $html = preg_replace('/>\s+</', '><', $html);
     $html = preg_replace('/\s{2,}/', ' ', $html);
-    return trim($html ?? '');
+    $html = trim($html ?? '');
+
+    if ($preservedBlocks !== []) {
+        $html = strtr($html, $preservedBlocks);
+    }
+
+    return $html;
 }
 
 function collectCompactVars(array $tokens): array

@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @php
         $faviconPath = \App\Models\Setting::get('favicon', 'assets/images/favicon.png');
+        $metaTitle = \App\Models\Setting::get('meta_title', 'WooFood');
         $metaKeywords = \App\Models\Setting::get('meta_keywords', 'tickets, support, dashboard, reporting, operations');
         $metaDescription = \App\Models\Setting::get('meta_description', 'Ticket management system for activity tracking, team coordination, and reporting.');
         $metaAuthor = \App\Models\Setting::get('meta_author', 'Ticket Operations');
@@ -16,7 +17,7 @@
     <meta name="author" content="{{ $metaAuthor }}">
     <link rel="icon" href="{{ asset('public/' . $faviconPath) }}" type="image/x-icon">
     <link rel="shortcut icon" href="{{ asset('public/' . $faviconPath) }}" type="image/x-icon">
-    <title>Bazaar Bites Admin Login</title>
+    <title>{{ $metaTitle }}</title>
 
     <!-- Your existing styles + assets -->
         <link rel="preconnect" href="https://fonts.googleapis.com">

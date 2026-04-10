@@ -29,11 +29,10 @@
                             <table class="table table-bordered align-middle" id="itemsTable">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>{{ __('product') }}</th>
-                                        <th>{{ __('quantity') }}</th>
-                                        <th class="text-end">{{ __('unit_price') }}</th>
-                                        <th class="text-end">{{ __('line_total') }}</th>
-                                        <th class="text-end">{{ __('new_item_price') }}</th>
+                                                <th>{{ __('product') }}</th>
+                                                <th>{{ __('quantity') }}</th>
+                                                <th class="text-end">{{ __('unit_price') }}</th>
+                                                <th class="text-end">{{ __('new_item_price') }}</th>
                                         <th class="text-center">{{ __('action') }}</th>
                                     </tr>
                                 </thead>
@@ -65,7 +64,6 @@
                                         </td>
                                         <td>{{ $item->quantity }}</td>
                                         <td class="text-end">{{ number_format($item->unit_price, 2) }}</td>
-                                        <td class="text-end">{{ number_format($item->line_total, 2) }}</td>
                                         <td class="text-end new-addon-price" data-item-id="{{ $item->id }}">
                                             {{ number_format($item->addition_amount ?? 0, 2) }}
                                         </td>
@@ -84,13 +82,13 @@
                                 </tbody>
                                 <tfoot class="table-light">
                                     <tr>
-                                        <td colspan="6">
+                                        <td colspan="5">
                                             <div class="d-flex gap-2">
                                                 <select id="productSelect" class="form-select select2">
                                                     <option value="">{{ __('select_products') }}</option>
                                                     @foreach($products as $product)
-                                                        <option value="{{ $product->id }}" data-price="{{ $product->price }}" data-title="{{ $product->title }}" data-addons="{{ json_encode($product->addons) }}">
-                                                            {{ $product->title }} ({{ number_format($product->price, 2) }})
+                                                        <option value="{{ $product->id }}" data-price="{{ $product->base_price }}" data-title="{{ $product->title }}" data-addons="{{ json_encode($product->addons) }}">
+                                                            {{ $product->title }} ({{ number_format((float) $product->base_price, 2) }})
                                                         </option>
                                                     @endforeach
                                                 </select>
@@ -236,13 +234,13 @@
         let newItems = [];
         let deletedExistingIds = [];
         let existingAddonUpdates = {};
-        const originalPaidAmount = {{ $order->amount_paid }};
-        const originalSubtotal = {{ $order->subtotal }};
-        const originalVatAmount = {{ $order->vat_amount }};
-        const originalGrandTotal = {{ $order->grand_total }};
+        const originalPaidAmount = parseFloat(@json($order->amount_paid ?? 0)) || 0;
+        const originalSubtotal = parseFloat(@json($order->subtotal ?? 0)) || 0;
+        const originalVatAmount = parseFloat(@json($order->vat_amount ?? 0)) || 0;
+        const originalGrandTotal = parseFloat(@json($order->grand_total ?? 0)) || 0;
         const vatRate = parseFloat(@json(\App\Models\Tax::where('status', true)->orderBy('id')->first()?->amount ?? 0)) || 0;
         const vatType = @json(\App\Models\Tax::where('status', true)->orderBy('id')->first()?->calculation_type ?? 'percentage');
-        const shippingCosts = {{ $order->shipping_costs }}; // Keep shipping as is for now or recalculate if needed
+        const shippingCosts = parseFloat(@json($order->shipping_costs ?? 0)) || 0; // Keep shipping as is for now or recalculate if needed
 
         const btnAddItem = document.getElementById('btnAddItem');
         const addonModal = new bootstrap.Modal(document.getElementById('addonModal'));
@@ -294,7 +292,19 @@
             const row = $(this).closest('tr');
             const productId = row.data('product-id');
             const rowId = row.data('id');
-            const currentAddons = row.data('current-addons') || [];
+            const currentAddonsRaw = row.attr('data-current-addons') || row.data('current-addons') || [];
+            let currentAddons = [];
+
+            if (Array.isArray(currentAddonsRaw)) {
+                currentAddons = currentAddonsRaw;
+            } else if (typeof currentAddonsRaw === 'string' && currentAddonsRaw.trim() !== '') {
+                try {
+                    const parsedAddons = JSON.parse(currentAddonsRaw);
+                    currentAddons = Array.isArray(parsedAddons) ? parsedAddons : [];
+                } catch (error) {
+                    currentAddons = [];
+                }
+            }
 
             // Extract selected value IDs for pre-selection
             let selectedValueIds = [];
@@ -313,7 +323,7 @@
             pendingProduct = {
                 id: product.id,
                 title: product.title,
-                price: parseFloat(product.price) || 0,
+                price: parseFloat(product.base_price || product.price) || 0,
                 addons: []
             };
             pendingProduct.currentAddons = currentAddons;
@@ -361,6 +371,10 @@
         }
 
         confirmAddons.addEventListener('click', function() {
+            if (!pendingProduct) {
+                return;
+            }
+
             const selectedAddonInputs = addonContainer.querySelectorAll('.addon-input:checked');
             const existingIds = new Set(pendingProduct.existingAddonValueIds || []);
             const addedAddons = [];
@@ -498,7 +512,8 @@
 
         function addItemToTable(product) {
             const addonTotal = product.addons.reduce((sum, addon) => sum + (parseFloat(addon.price) || 0), 0);
-            const itemUnitPrice = (parseFloat(product.price) || 0) + addonTotal;
+            const basePrice = parseFloat(product.price || product.base_price || product.unit_price) || 0;
+            const itemUnitPrice = basePrice + addonTotal;
             const additionAmount = itemUnitPrice;
             const additionTax = calculateAdditionTax(additionAmount);
 
@@ -528,8 +543,7 @@
                     </td>
                     <td>1</td>
                     <td class="text-end">${item.unit_price.toFixed(2)}</td>
-                    <td class="text-end">${item.line_total.toFixed(2)}</td>
-                    <td class="text-end">${item.addition_amount.toFixed(2)}</td>
+                                            <td class="text-end">${item.addition_amount.toFixed(2)}</td>
                     <td class="text-center">
                         <button type="button" class="btn btn-outline-danger btn-sm js-remove-new" data-uid="${item.uid}">
                             <i class="fa fa-times"></i>

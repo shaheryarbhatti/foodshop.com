@@ -4,6 +4,8 @@
     $currencies = \App\Models\Currency::orderBy('name')->get();
     $currentCurrency = \App\Models\Currency::find(session('frontend_currency_id')) ?: \App\Models\Currency::active()->first() ?: $currencies->first();
     $frontendCustomerId = session('frontend_customer_id');
+    $frontendPortalUser = auth()->user();
+    $isStaffPortalUser = $frontendPortalUser && $frontendPortalUser->hasAnyRole(['Staff', 'Driver']);
     $frontendHeaderLogo = \App\Models\Setting::get('frontend_header_logo', 'assets/images/logo/logo.png');
     $frontendHeaderLogoUrl = asset('public/' . $frontendHeaderLogo);
     $frontendHeaderOverlayColor = \App\Models\Setting::get('frontend_header_logo_overlay_color', '');
@@ -27,12 +29,16 @@
         <div class="collapse navbar-collapse" id="frontendNavbar">
             <div class="nav-links mx-lg-5">
                 <a href="{{ route('frontend.home') }}" class="{{ ($activeNav ?? '') === 'home' ? 'active' : '' }}">{{ __('frontend_homepage') }}</a>
-                @if($frontendCustomerId)
+                @if($isStaffPortalUser)
+                    <a href="{{ route('frontend.staff.dashboard') }}" class="{{ ($activeNav ?? '') === 'staff-dashboard' ? 'active' : '' }}">Dashboard</a>
+                @elseif($frontendCustomerId)
                     <a href="{{ route('frontend.dashboard') }}" class="{{ ($activeNav ?? '') === 'dashboard' ? 'active' : '' }}">Dashboard</a>
                 @else
                     <a href="{{ route('login') }}" class="{{ ($activeNav ?? '') === 'submit-ticket' ? 'active' : '' }}">{{ __('frontend_login_register') }}</a>
                 @endif
-                <a href="{{ route('admin.login') }}" class="{{ ($activeNav ?? '') === 'admin-panel' ? 'active' : '' }}">{{ __('frontend_admin_panel') }}</a>
+                @unless($isStaffPortalUser)
+                    <a href="{{ route('admin.login') }}" class="{{ ($activeNav ?? '') === 'admin-panel' ? 'active' : '' }}">{{ __('frontend_admin_panel') }}</a>
+                @endunless
             </div>
             <div class="ms-lg-auto d-flex flex-column flex-lg-row align-items-lg-center gap-2 mt-3 mt-lg-0">
                 <div class="portal-control-shell">
@@ -53,11 +59,13 @@
                         @endforeach
                     </select>
                 </div>
-                <a href="{{ route('frontend.cart') }}" class="portal-cart text-decoration-none">
-                    <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="portal-cart-badge">0</span>
-                </a>
-                @if($frontendCustomerId)
+                @unless($isStaffPortalUser)
+                    <a href="{{ route('frontend.cart') }}" class="portal-cart text-decoration-none">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        <span class="portal-cart-badge">0</span>
+                    </a>
+                @endunless
+                @if($frontendCustomerId || $isStaffPortalUser)
                     <form method="POST" action="{{ route('frontend.logout') }}" class="mb-0">
                         @csrf
                         <button type="submit" class="portal-cart text-decoration-none border-0">

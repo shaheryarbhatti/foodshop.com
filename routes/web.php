@@ -202,6 +202,8 @@ Route::middleware(['auth'])->prefix('categories')->group(function () {
 
 Route::middleware(['auth'])->prefix('products')->group(function () {
     Route::get('/', [ProductController::class, 'index'])->name('products.manage');
+    Route::get('/export-excel', [ProductController::class, 'exportExcel'])->name('products.exportExcel');
+    Route::post('/import-excel', [ProductController::class, 'importExcel'])->name('products.importExcel');
     Route::get('/create', [ProductController::class, 'create'])->name('products.add');
     Route::post('/', [ProductController::class, 'store'])->name('products.store');
     Route::delete('/delete-all', [ProductController::class, 'destroyAll'])->name('products.destroyAll');
@@ -252,6 +254,10 @@ Route::middleware(['auth'])->prefix('customers')->group(function () {
 
 Route::middleware(['auth'])->prefix('orders')->group(function () {
     Route::get('/', [OrderController::class, 'index'])->name('orders.manage');
+    Route::get('/{order}/available-drivers', [OrderController::class, 'availableDrivers'])->name('orders.available-drivers');
+    Route::get('/{order}/available-branches', [OrderController::class, 'availableBranches'])->name('orders.available-branches');
+    Route::patch('/{order}/assign-driver', [OrderController::class, 'assignDriver'])->name('orders.assign-driver');
+    Route::patch('/{order}/change-branch', [OrderController::class, 'updateBranch'])->name('orders.change-branch');
     Route::get('/{order}/edit', [OrderController::class, 'edit'])->name('orders.edit');
     Route::put('/{order}', [OrderController::class, 'update'])->name('orders.update');
     Route::patch('/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');

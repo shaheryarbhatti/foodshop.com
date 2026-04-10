@@ -9,11 +9,18 @@
         $frontendHeaderTextColor = \App\Models\Setting::get('frontend_header_text_color', '#ffffff');
         $frontendFooterBgColor = \App\Models\Setting::get('frontend_footer_bg_color', '#000000');
         $frontendFooterTextColor = \App\Models\Setting::get('frontend_footer_text_color', '#ffffff');
+        $metaTitle = trim((string) \App\Models\Setting::get('meta_title', 'WooFood'));
+        $metaKeywords = trim((string) \App\Models\Setting::get('meta_keywords', 'food ordering, online restaurant, delivery, pickup'));
+        $metaDescription = trim((string) \App\Models\Setting::get('meta_description', 'Order food online with smooth delivery, pickup, and checkout experiences.'));
+        $metaAuthor = trim((string) \App\Models\Setting::get('meta_author', 'WooFood'));
     @endphp
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'WooFood')</title>
+    <title>@yield('title', $metaTitle)</title>
+    <meta name="description" content="@yield('meta_description', $metaDescription)">
+    <meta name="keywords" content="@yield('meta_keywords', $metaKeywords)">
+    <meta name="author" content="@yield('meta_author', $metaAuthor)">
     <link rel="icon" href="{{ asset('public/' . \App\Models\Setting::get('favicon', 'assets/images/favicon.png')) }}"
         type="image/x-icon">
     <link rel="stylesheet" href="{{ asset('public/assets/css/vendors/bootstrap.css') }}">
@@ -286,6 +293,12 @@
             opacity: 1 !important;
         }
 
+        .footer-availability-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+        }
+
         .pickup-footer-panel {
             display: grid;
             grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
@@ -462,6 +475,7 @@
         </main>
 
         @include('components.frontend.footer')
+        @include('components.frontend.cookie-consent')
     </div>
 
     <script src="{{ asset('public/assets/js/jquery.min.js') }}"></script>

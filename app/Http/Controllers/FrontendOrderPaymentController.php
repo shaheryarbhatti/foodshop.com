@@ -54,7 +54,7 @@ class FrontendOrderPaymentController extends Controller
         $paymentMethodCode = $request->input('payment_method');
         $paymentMethod = $this->findActivePaymentMethod($paymentMethodCode);
         $credentials = $this->resolveGatewayCredentials($paymentMethod);
-        
+
         $currency = Currency::where('code', $order->payment_currency)->first();
         $minorAmount = $this->toMinorAmount($balance, $currency);
 
@@ -83,7 +83,10 @@ class FrontendOrderPaymentController extends Controller
     {
         $balance = $order->grand_total - $order->amount_paid;
         $currency = Currency::where('code', $order->payment_currency)->first();
-        
+        $validated = $request->validate([
+            'payment_method' => 'required|string',
+            'gateway_payment_intent_id' => 'nullable|string',
+        ]);
         $paymentMethod = $this->findActivePaymentMethod($validated['payment_method']);
         if (!$paymentMethod) {
             return back()->with('error', 'Invalid payment method');
@@ -95,7 +98,7 @@ class FrontendOrderPaymentController extends Controller
                 if (!$gatewayIntentId) {
                     throw new \Exception('Payment intent ID is required for Stripe');
                 }
-                
+
                 $paymentVerification = $this->verifyGatewayPayment(
                     $paymentMethod,
                     $gatewayIntentId,
@@ -113,7 +116,7 @@ class FrontendOrderPaymentController extends Controller
             } else {
                 // Manual payment (Bank Account, etc.)
                 $order->update([
-                    'payment_status' => 'pending_verification', // New status or existing? 
+                    'payment_status' => 'pending_verification', // New status or existing?
                     'payment_method' => $paymentMethod['code'],
                     'remarks' => ($order->remarks ? $order->remarks . "\n" : "") . "Customer requested balance payment via " . $paymentMethod['title'],
                     'extra_amount_paid' => null,
@@ -135,7 +138,7 @@ class FrontendOrderPaymentController extends Controller
             ->map(function (array $method) {
                 $isManual = in_array($method['type'] ?? '', ['cash_on_delivery', 'bank_account']);
                 $credentials = !$isManual ? $this->resolveGatewayCredentials($method) : ['public_key' => null];
-                
+
                 return [
                     'code' => $method['code'],
                     'type' => $method['type'] ?? 'unknown',

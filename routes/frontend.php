@@ -11,6 +11,7 @@ use App\Models\Tax;
 use App\Models\Allergy;
 use App\Http\Controllers\FrontendCustomerAuthController;
 use App\Http\Controllers\FrontendCheckoutController;
+use App\Http\Controllers\FrontendStaffPortalController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,6 +38,21 @@ Route::post('/check-customer-email', [FrontendCustomerAuthController::class, 'ch
 Route::get('/address-search', [FrontendCustomerAuthController::class, 'addressSearch'])->name('frontend.address-search');
 Route::post('/geocode-address', [FrontendCustomerAuthController::class, 'geocodeAddress'])->name('frontend.geocode-address');
 Route::post('/reverse-geocode-address', [FrontendCustomerAuthController::class, 'reverseGeocodeAddress'])->name('frontend.reverse-geocode-address');
+
+Route::middleware('auth')->prefix('staff')->group(function () {
+    Route::get('/dashboard', [FrontendStaffPortalController::class, 'dashboard'])->name('frontend.staff.dashboard');
+    Route::get('/route-planner-data', [FrontendStaffPortalController::class, 'routePlannerData'])->name('frontend.staff.route-planner-data');
+    Route::get('/orders/{order}/available-drivers', [FrontendStaffPortalController::class, 'availableDrivers'])->name('frontend.staff.orders.available-drivers');
+    Route::get('/orders/{order}/available-branches', [FrontendStaffPortalController::class, 'availableBranches'])->name('frontend.staff.orders.available-branches');
+    Route::patch('/orders/{order}/assign-driver', [FrontendStaffPortalController::class, 'assignDriver'])->name('frontend.staff.orders.assign-driver');
+    Route::patch('/orders/{order}/change-branch', [FrontendStaffPortalController::class, 'updateBranch'])->name('frontend.staff.orders.change-branch');
+    Route::get('/orders/{order}/edit', [FrontendStaffPortalController::class, 'edit'])->name('frontend.staff.orders.edit');
+    Route::put('/orders/{order}', [FrontendStaffPortalController::class, 'update'])->name('frontend.staff.orders.update');
+    Route::patch('/orders/{order}/status', [FrontendStaffPortalController::class, 'updateStatus'])->name('frontend.staff.orders.update-status');
+    Route::delete('/orders/{order}', [FrontendStaffPortalController::class, 'destroy'])->name('frontend.staff.orders.destroy');
+    Route::get('/orders/{order}/invoice', [FrontendStaffPortalController::class, 'invoice'])->name('frontend.staff.orders.invoice');
+    Route::get('/orders/{order}/invoice/download', [FrontendStaffPortalController::class, 'downloadInvoice'])->name('frontend.staff.orders.invoice.download');
+});
 
 Route::get('/currency/{currency}', function (Currency $currency) {
     session(['frontend_currency_id' => $currency->id]);

@@ -116,6 +116,29 @@
                     @php
                     $user = auth()->user();
                     $isSuper = $user && $user->hasRole('Super Admin');
+                    $guardName = $user?->guard_name ?? config('auth.defaults.guard', 'web');
+                    $permissionExists = function (?string $permission) use ($guardName) {
+                        if (! $permission) {
+                            return false;
+                        }
+
+                        return \Spatie\Permission\Models\Permission::query()
+                            ->where('name', $permission)
+                            ->where('guard_name', $guardName)
+                            ->exists();
+                    };
+
+                    $hasSafePermission = function (?string $permission) use ($isSuper, $user, $permissionExists) {
+                        if ($isSuper || ! $permission) {
+                            return true;
+                        }
+
+                        if (! $user || ! $permissionExists($permission)) {
+                            return false;
+                        }
+
+                        return $user->hasPermissionTo($permission);
+                    };
                     if ($user) {
                         $modules = \App\Models\SidebarModule::with('options')
                             ->orderBy('order')
@@ -128,7 +151,7 @@
 
                     @foreach($modules as $module)
                     @php
-                        $moduleVisible = $isSuper || ! $module->permission || $user->hasPermissionTo($module->permission);
+                        $moduleVisible = $hasSafePermission($module->permission);
                         $visibleOptions = collect();
                         foreach ($module->options as $option) {
                             $basePermission = explode('.', $option->permission)[0] ?? $option->permission;
@@ -143,8 +166,9 @@
                                 $legacyBase . '.edit',
                                 $legacyBase . '.delete',
                             ];
-                            $hasOptionPermission = $isSuper || ! $option->permission || $user->hasPermissionTo($option->permission);
-                            $hasActionPermission = $isSuper || $user->canAny($actionPermissions);
+                            $actionPermissions = array_values(array_filter($actionPermissions, fn ($permission) => $permissionExists($permission)));
+                            $hasOptionPermission = $hasSafePermission($option->permission);
+                            $hasActionPermission = $isSuper || (! empty($actionPermissions) && $user->canAny($actionPermissions));
                             if ($hasOptionPermission || $hasActionPermission) {
                                 $visibleOptions->push($option);
                             }

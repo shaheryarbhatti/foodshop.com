@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Organization;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Setting;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,10 @@ class OrderController extends Controller
         }
 
         if ($request->ajax()) {
-            $query = Order::with(['organization.location', 'customer', 'items'])->select('orders.*');
+            $query = Order::with(['organization.location', 'customer', 'items', 'driver'])
+                ->select('orders.*')
+                ->orderByDesc('orders.created_at')
+                ->orderByDesc('orders.id');
 
             $statusFilter = (string) $request->input('status_filter', '');
             if ($statusFilter !== '' && array_key_exists($statusFilter, Order::statusOptions())) {
@@ -44,9 +49,11 @@ class OrderController extends Controller
                 ->addColumn('branch_summary', function (Order $order) {
                     $branchName = optional($order->organization)->name ?: __('not_available');
                     $branchLocation = optional(optional($order->organization)->location)->name;
+                    $driverName = optional($order->driver)->name;
 
                     return '<div class="fw-semibold text-dark">' . e($branchName) . '</div>'
-                        . '<div class="small text-muted">' . e($branchLocation ?: ($order->city ?: '-')) . '</div>';
+                        . '<div class="small text-muted">' . e($branchLocation ?: ($order->city ?: '-')) . '</div>'
+                        . '<div class="small text-muted">' . e($driverName ? ('Driver: ' . $driverName) : 'Driver: Unassigned') . '</div>';
                 })
                 ->addColumn('items_summary', function (Order $order) {
                     $items = $order->items;
@@ -133,8 +140,20 @@ class OrderController extends Controller
                             . 'title="' . __('view_route') . '">'
                             . '<i class="fa fa-route"></i></button>'
                         : '';
+                    $assignDriverButton = $canEditStatus
+                        ? '<button type="button" class="btn btn-primary btn-sm js-open-driver-assign-modal" '
+                            . 'data-order-id="' . e((string) $order->id) . '" '
+                            . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
+                            . 'title="Assign Driver"><i class="fa fa-user-check"></i></button>'
+                        : '';
+                    $changeBranchButton = $canEditStatus
+                        ? '<button type="button" class="btn btn-secondary btn-sm js-open-branch-change-modal" '
+                            . 'data-order-id="' . e((string) $order->id) . '" '
+                            . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
+                            . 'title="' . __('change_branch') . '"><i class="fa fa-code-branch"></i></button>'
+                        : '';
 
-                    $actions = $statusButton . $editOrder . $invoice . $pdf . $routeButton . $deleteButton;
+                    $actions = $statusButton . $editOrder . $invoice . $pdf . $routeButton . $assignDriverButton . $changeBranchButton . $deleteButton;
 
                     return $actions
                         ? '<div class="action d-flex gap-2">' . $actions . '</div>'
@@ -311,6 +330,124 @@ class OrderController extends Controller
         ]);
     }
 
+    public function availableDrivers(Order $order): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user && ! $this->canAccessRoute($user, 'orders.manage', ['orders.manage', 'orders.edit'])) {
+            abort(403);
+        }
+
+        $drivers = $this->branchDrivers($order)
+            ->get(['users.id', 'users.name', 'users.email'])
+            ->map(fn (User $driver) => [
+                'id' => $driver->id,
+                'name' => $driver->name,
+                'email' => $driver->email,
+            ])
+            ->values()
+            ->all();
+
+        return response()->json([
+            'drivers' => $drivers,
+            'assigned_driver_id' => $order->driver_id,
+        ]);
+    }
+
+    public function assignDriver(Request $request, Order $order): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user && ! $this->canAccessRoute($user, 'orders.manage', ['orders.manage', 'orders.edit'])) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'driver_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $driver = $this->branchDrivers($order)
+            ->where('users.id', $validated['driver_id'])
+            ->first();
+
+        if (! $driver) {
+            return response()->json([
+                'message' => 'Selected driver is not valid for this branch.',
+            ], 422);
+        }
+
+        $order->update([
+            'driver_id' => $driver->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Driver assigned successfully.',
+            'driver_name' => $driver->name,
+        ]);
+    }
+
+    public function availableBranches(Order $order): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user && ! $this->canAccessRoute($user, 'orders.manage', ['orders.manage', 'orders.edit'])) {
+            abort(403);
+        }
+
+        $branches = Organization::query()
+            ->where('status', true)
+            ->with('location')
+            ->orderBy('name')
+            ->get(['id', 'name', 'location_id', 'address'])
+            ->map(fn (Organization $branch) => [
+                'id' => $branch->id,
+                'name' => $branch->name,
+                'location' => optional($branch->location)->name,
+                'address' => $branch->address,
+            ])
+            ->values()
+            ->all();
+
+        return response()->json([
+            'branches' => $branches,
+            'selected_branch_id' => $order->organization_id,
+        ]);
+    }
+
+    public function updateBranch(Request $request, Order $order): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user && ! $this->canAccessRoute($user, 'orders.manage', ['orders.manage', 'orders.edit'])) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'organization_id' => ['required', 'integer', 'exists:organizations,id'],
+        ]);
+
+        $branch = Organization::query()
+            ->where('status', true)
+            ->find($validated['organization_id']);
+
+        if (! $branch) {
+            return response()->json([
+                'message' => __('selected_branch_is_not_available'),
+            ], 422);
+        }
+
+        $currentBranchId = (int) $order->organization_id;
+        $nextBranchId = (int) $branch->id;
+
+        $order->organization_id = $nextBranchId;
+        if ($currentBranchId !== $nextBranchId) {
+            $order->driver_id = null;
+        }
+        $order->save();
+
+        return response()->json([
+            'message' => __('order_branch_updated_successfully'),
+            'branch_name' => $branch->name,
+            'driver_cleared' => $currentBranchId !== $nextBranchId,
+        ]);
+    }
+
     public function invoice(Order $order): View
     {
         $user = auth()->user();
@@ -409,5 +546,14 @@ class OrderController extends Controller
             . '&destination='
             . urlencode($order->customer_latitude . ',' . $order->customer_longitude)
             . '&travelmode=driving';
+    }
+
+    private function branchDrivers(Order $order)
+    {
+        return User::query()
+            ->where('status', true)
+            ->whereHas('roles', fn ($query) => $query->whereRaw('LOWER(name) = ?', ['driver']))
+            ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $order->organization_id))
+            ->orderBy('name');
     }
 }

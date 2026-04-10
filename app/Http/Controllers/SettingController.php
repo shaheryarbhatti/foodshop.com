@@ -23,6 +23,9 @@ class SettingController extends Controller
 
         $data = $request->validate([
             'footer_text'    => 'nullable|string',
+            'frontend_footer_address_line_1' => 'nullable|string|max:255',
+            'frontend_footer_address_line_2' => 'nullable|string|max:255',
+            'frontend_footer_phone' => 'nullable|string|max:80',
             'login_logo'     => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'admin_logo'     => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'frontend_header_logo' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
@@ -105,11 +108,14 @@ class SettingController extends Controller
             'map_provider' => 'nullable|in:leaflet,google',
             'google_maps_api_key' => 'nullable|string|max:255',
             'pickup_schedule_json' => 'nullable|string',
+            'delivery_schedule_json' => 'nullable|string',
+            'opening_hours_json' => 'nullable|string',
             'payment_methods_json' => 'nullable|string',
             'license_client_name' => 'nullable|string|max:255',
             'license_server_url' => 'nullable|string|max:255',
             'license_key' => 'nullable|string|max:255',
             'license_project_key' => 'nullable|string|max:255',
+            'meta_title' => 'nullable|string|max:160',
             'meta_keywords' => 'nullable|string|max:500',
             'meta_description' => 'nullable|string|max:255',
             'meta_author' => 'nullable|string|max:120',
@@ -127,6 +133,21 @@ class SettingController extends Controller
             'theme_accent_text' => ['nullable', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
             'sidebar_dashboard_text_color' => ['nullable', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
             'sidebar_dashboard_text_color_text' => ['nullable', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
+            'cookie_banner_title' => 'nullable|string|max:160',
+            'cookie_banner_description' => 'nullable|string|max:1200',
+            'cookie_banner_notice' => 'nullable|string|max:1200',
+            'cookie_accept_all_label' => 'nullable|string|max:80',
+            'cookie_save_label' => 'nullable|string|max:80',
+            'cookie_manage_label' => 'nullable|string|max:120',
+            'cookie_back_label' => 'nullable|string|max:80',
+            'cookie_show_details_label' => 'nullable|string|max:120',
+            'cookie_hide_details_label' => 'nullable|string|max:120',
+            'cookie_privacy_link_text' => 'nullable|string|max:80',
+            'cookie_privacy_link_url' => 'nullable|string|max:255',
+            'cookie_imprint_link_text' => 'nullable|string|max:80',
+            'cookie_imprint_link_url' => 'nullable|string|max:255',
+            'cookie_consent_storage_days' => 'nullable|integer|min:1|max:3650',
+            'cookie_categories_json' => 'nullable|string',
         ]);
 
         $themePrimary = $request->input('theme_primary_text') ?: $request->input('theme_primary');
@@ -165,6 +186,8 @@ class SettingController extends Controller
             'frontend_checkout_button_text_color',
         ];
         $pickupSchedule = $this->normalizePickupSchedule($request->input('pickup_schedule_json'));
+        $deliverySchedule = $this->normalizeDeliverySchedule($request->input('delivery_schedule_json'));
+        $openingHours = $this->normalizeOpeningHours($request->input('opening_hours_json'));
         $paymentMethods = $this->normalizePaymentMethods($request->input('payment_methods_json'));
 
         $cardBg = $request->input('card_bg_color_text') ?: $request->input('card_bg_color');
@@ -269,7 +292,11 @@ class SettingController extends Controller
         if ($cardBg) {
             $data['card_bg_color'] = $cardBg;
         }
+        $data['cookie_banner_enabled'] = $request->boolean('cookie_banner_enabled') ? '1' : '0';
+        $data['cookie_categories_json'] = json_encode($this->normalizeCookieCategories($request->input('cookie_categories_json')));
         $data['pickup_schedule_json'] = json_encode($pickupSchedule);
+        $data['delivery_schedule_json'] = json_encode($deliverySchedule);
+        $data['opening_hours_json'] = json_encode($openingHours);
         $data['payment_methods_json'] = json_encode($paymentMethods);
 
         foreach ($data as $key => $value) {
@@ -292,6 +319,21 @@ class SettingController extends Controller
     }
 
     private function normalizePickupSchedule(?string $payload): array
+    {
+        return $this->normalizeWeeklySchedule($payload);
+    }
+
+    private function normalizeDeliverySchedule(?string $payload): array
+    {
+        return $this->normalizeWeeklySchedule($payload);
+    }
+
+    private function normalizeOpeningHours(?string $payload): array
+    {
+        return $this->normalizeWeeklySchedule($payload);
+    }
+
+    private function normalizeWeeklySchedule(?string $payload): array
     {
         $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         $decoded = json_decode($payload ?: '{}', true);
@@ -392,6 +434,59 @@ class SettingController extends Controller
         $value = preg_replace('/[^a-z0-9]+/', '_', $value) ?: '';
 
         return trim($value, '_');
+    }
+
+    private function normalizeCookieCategories(?string $payload): array
+    {
+        $decoded = json_decode($payload ?: '[]', true);
+        if (! is_array($decoded)) {
+            $decoded = [];
+        }
+
+        $categories = [];
+
+        foreach ($decoded as $index => $category) {
+            if (! is_array($category)) {
+                continue;
+            }
+
+            $title = trim((string) ($category['title'] ?? ''));
+            $key = trim((string) ($category['key'] ?? ''));
+            $normalizedKey = preg_replace('/[^a-z0-9_]+/', '_', strtolower($key !== '' ? $key : $title));
+            $normalizedKey = trim((string) $normalizedKey, '_');
+
+            if ($title === '' && $normalizedKey === '') {
+                continue;
+            }
+
+            $details = collect($category['details'] ?? [])
+                ->filter(fn ($detail) => is_array($detail))
+                ->map(function ($detail) {
+                    return [
+                        'label' => trim((string) ($detail['label'] ?? '')),
+                        'value' => trim((string) ($detail['value'] ?? '')),
+                        'link_text' => trim((string) ($detail['link_text'] ?? '')),
+                        'link_url' => trim((string) ($detail['link_url'] ?? '')),
+                    ];
+                })
+                ->filter(fn ($detail) => $detail['label'] !== '' || $detail['value'] !== '' || $detail['link_text'] !== '' || $detail['link_url'] !== '')
+                ->values()
+                ->all();
+
+            $isEssential = (bool) ($category['is_essential'] ?? false);
+
+            $categories[] = [
+                'id' => trim((string) ($category['id'] ?? ('cookie_' . ($index + 1)))),
+                'key' => $normalizedKey !== '' ? $normalizedKey : 'cookie_' . ($index + 1),
+                'title' => $title !== '' ? $title : ucfirst(str_replace('_', ' ', $normalizedKey ?: ('cookie_' . ($index + 1)))),
+                'description' => trim((string) ($category['description'] ?? '')),
+                'is_essential' => $isEssential,
+                'default_selected' => $isEssential || (bool) ($category['default_selected'] ?? false),
+                'details' => $details,
+            ];
+        }
+
+        return array_values($categories);
     }
 
     public function updateLicense(Request $request)

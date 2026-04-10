@@ -15,7 +15,17 @@
                 <div class="card" style="margin-top:20px;">
                     <div class="card-header pb-0 d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">{{ __('manage_products') }}</h4>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 flex-wrap justify-content-end">
+                            <a href="{{ route('products.exportExcel') }}" class="btn btn-success">
+                                <i class="fa fa-file-excel me-2"></i>{{ __('products_download_excel') }}
+                            </a>
+                            <form action="{{ route('products.importExcel') }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 flex-wrap align-items-center">
+                                @csrf
+                                <input type="file" name="products_excel_file" class="form-control" accept=".xlsx,.xls,.csv" style="max-width: 260px;">
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="fa fa-upload me-2"></i>{{ __('products_upload_excel') }}
+                                </button>
+                            </form>
                             <form action="{{ route('products.destroyAll') }}" method="POST" class="bulk-delete-form js-confirm-delete" data-text="{{ __('delete_selected_records_confirm') }}">
                                 @csrf
                                 @method('DELETE')
@@ -41,6 +51,9 @@
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                         @endif
+                        <div class="alert alert-light border mb-3">
+                            <strong>{{ __('products_excel_note_title') }}</strong> {{ __('products_excel_note_body') }}
+                        </div>
 
                         <div class="table-responsive">
                             <table id="productsTable" class="display table table-hover table-bordered"

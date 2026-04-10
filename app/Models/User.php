@@ -56,4 +56,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Organization::class)->withTimestamps();
     }
+
+    public function assignedOrders()
+    {
+        return $this->hasMany(Order::class, 'driver_id');
+    }
 }

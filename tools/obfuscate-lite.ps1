@@ -1,17 +1,28 @@
 param(
-    [string]$Source = "C:\\xampp\\htdocs\\gym",
-    [string]$Target = "C:\\xampp\\htdocs\\gymmanagementsystem",
+    [string]$Source = "",
+    [string]$Target = "",
     [switch]$Medium,
     [switch]$Aggressive,
     [switch]$Views
 )
+
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
+$HtdocsRoot = Split-Path -Parent $ProjectRoot
+
+if ([string]::IsNullOrWhiteSpace($Source)) {
+    $Source = $ProjectRoot
+}
+
+if ([string]::IsNullOrWhiteSpace($Target)) {
+    $Target = Join-Path $HtdocsRoot "foodshop-obfuscated"
+}
 
 if (-not (Test-Path -Path $Source)) {
     Write-Error "Source path not found: $Source"
     exit 1
 }
 
-$targetsFile = "C:\\xampp\\htdocs\\gym\\tools\\obfuscate-lite-targets.txt"
+$targetsFile = Join-Path $PSScriptRoot "obfuscate-lite-targets.txt"
 $targets = @()
 if (Test-Path -Path $targetsFile) {
     $targets = Get-Content -Path $targetsFile | ForEach-Object { $_.Trim() } | Where-Object {
@@ -20,7 +31,7 @@ if (Test-Path -Path $targetsFile) {
         if ($_ -match "^[A-Za-z]:\\\\") {
             $_
         } else {
-            "C:\\xampp\\htdocs\\$($_)"
+            Join-Path $HtdocsRoot $_
         }
     }
 }
@@ -49,7 +60,7 @@ foreach ($targetPath in $targets) {
         $args += '--views'
     }
 
-    & php "C:\\xampp\\htdocs\\gym\\tools\\obfuscate-lite.php" $Source $targetPath @args
+    & php (Join-Path $PSScriptRoot "obfuscate-lite.php") $Source $targetPath @args
     if ($LASTEXITCODE -ne 0) {
         Write-Error "obfuscate-lite failed with exit code $LASTEXITCODE"
         exit $LASTEXITCODE

@@ -6,9 +6,11 @@ use App\Models\Country;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Setting;
+use App\Models\User;
 use App\Services\BranchDeliveryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +22,12 @@ class FrontendCustomerAuthController extends Controller
 {
     public function showLogin()
     {
+        if (Auth::check()) {
+            return Auth::user()->hasAnyRole(['Staff', 'Driver'])
+                ? redirect()->route('frontend.staff.dashboard')
+                : redirect()->route('home');
+        }
+
         if (session()->has('frontend_customer_id')) {
             return redirect()->route('frontend.dashboard');
         }
@@ -30,16 +38,31 @@ class FrontendCustomerAuthController extends Controller
     public function login(Request $request)
     {
         $validated = $request->validate([
+            'login_type' => ['required', Rule::in(['customer', 'staff', 'driver'])],
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
+        if ($validated['login_type'] === 'customer') {
+            return $this->loginCustomer($validated, $request);
+        }
+
+        return $this->loginStaff($validated, $request);
+    }
+
+    private function loginCustomer(array $validated, Request $request): RedirectResponse
+    {
         $customer = Customer::where('email', $validated['email'])->where('status', true)->first();
         if (! $customer || ! Hash::check($validated['password'], $customer->password)) {
             return back()->withErrors(['email' => __('frontend_invalid_customer_credentials')])->withInput();
         }
 
-        session([
+        if (Auth::check()) {
+            Auth::logout();
+        }
+
+        $request->session()->regenerate();
+        $request->session()->put([
             'frontend_customer_id' => $customer->id,
             'frontend_customer_name' => $customer->full_name,
         ]);
@@ -47,8 +70,45 @@ class FrontendCustomerAuthController extends Controller
         return redirect()->route('frontend.dashboard')->with('status', __('frontend_login_success'));
     }
 
+    private function loginStaff(array $validated, Request $request): RedirectResponse
+    {
+        $requiredRole = $validated['login_type'] === 'staff' ? 'Staff' : 'Driver';
+
+        $user = User::query()
+            ->where('email', $validated['email'])
+            ->where('status', true)
+            ->whereHas('roles', fn ($query) => $query->whereRaw('LOWER(name) = ?', [strtolower($requiredRole)]))
+            ->first();
+
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            return back()
+                ->withErrors([
+                    'email' => $validated['login_type'] === 'driver'
+                        ? 'Invalid driver credentials.'
+                        : 'Invalid staff credentials.',
+                ])
+                ->withInput();
+        }
+
+        $request->session()->forget([
+            'frontend_customer_id',
+            'frontend_customer_name',
+            'frontend_checkout_success',
+            'order_id',
+        ]);
+
+        Auth::login($user, $request->boolean('remember'));
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('frontend.staff.dashboard'));
+    }
+
     public function showRegister()
     {
+        if (Auth::check() && Auth::user()->hasAnyRole(['Staff', 'Driver'])) {
+            return redirect()->route('frontend.staff.dashboard');
+        }
+
         if (session()->has('frontend_customer_id')) {
             return redirect()->route('frontend.dashboard');
         }
@@ -172,6 +232,14 @@ class FrontendCustomerAuthController extends Controller
 
     public function logout(): RedirectResponse
     {
+        if (Auth::check()) {
+            Auth::logout();
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
+
+            return redirect()->route('login')->with('status', 'You have been logged out successfully.');
+        }
+
         session()->forget([
             'frontend_customer_id',
             'frontend_customer_name',

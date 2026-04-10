@@ -18,6 +18,7 @@ class Order extends Model
 
     protected $fillable = [
         'order_number', 'customer_id', 'organization_id', 'shipping_fee_id', 'delivery_distance_km', 'customer_latitude', 'customer_longitude',
+        'driver_id',
         'first_name', 'last_name', 'company_name', 'email', 'phone', 
         'address', 'city', 'postal_code', 'country', 'different_delivery_address',
         'order_type', 'order_notes', 'payment_method', 'payment_gateway', 'payment_status', 'order_status',
@@ -110,6 +111,11 @@ class Order extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_id');
     }
 
     private static function generateOrderNumber(Order $order): string

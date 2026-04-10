@@ -53,7 +53,12 @@
     $mapProvider = \App\Models\Setting::get('map_provider', 'leaflet');
     $googleMapsApiKey = \App\Models\Setting::get('google_maps_api_key', '');
     $pickupSchedule = json_decode(\App\Models\Setting::get('pickup_schedule_json', '{}'), true);
+    $deliverySchedule = json_decode(\App\Models\Setting::get('delivery_schedule_json', '{}'), true);
+    $openingHoursSchedule = json_decode(\App\Models\Setting::get('opening_hours_json', '{}'), true);
     $paymentMethods = \App\Models\Setting::paymentMethods();
+    $cookieBannerConfig = \App\Models\Setting::cookieBannerConfig();
+    $cookieBannerEnabled = $cookieBannerConfig['enabled'];
+    $cookieCategories = $cookieBannerConfig['categories'];
     if (empty($paymentMethods)) {
         $paymentMethods = [
             [
@@ -120,6 +125,24 @@
         'saturday' => __('pickup_day_saturday'),
         'sunday' => __('pickup_day_sunday'),
     ];
+    $deliveryWeekDays = [
+        'monday' => __('delivery_day_monday'),
+        'tuesday' => __('delivery_day_tuesday'),
+        'wednesday' => __('delivery_day_wednesday'),
+        'thursday' => __('delivery_day_thursday'),
+        'friday' => __('delivery_day_friday'),
+        'saturday' => __('delivery_day_saturday'),
+        'sunday' => __('delivery_day_sunday'),
+    ];
+    $openingHoursWeekDays = [
+        'monday' => __('pickup_day_monday'),
+        'tuesday' => __('pickup_day_tuesday'),
+        'wednesday' => __('pickup_day_wednesday'),
+        'thursday' => __('pickup_day_thursday'),
+        'friday' => __('pickup_day_friday'),
+        'saturday' => __('pickup_day_saturday'),
+        'sunday' => __('pickup_day_sunday'),
+    ];
 @endphp
 <script>
     window.gymCurrency = {
@@ -139,7 +162,10 @@
         newSessionPackage: @json(__('settings_new_session_package')),
         durationDays: @json(__('settings_duration_days')),
         priceBaseLabel: @json(__('settings_price_base_label')),
-        pricePlaceholder: @json(__('settings_price_placeholder'))
+        pricePlaceholder: @json(__('settings_price_placeholder')),
+        pickupAddTime: @json(__('pickup_add_time')),
+        deliveryAddTime: @json(__('delivery_add_time')),
+        openingHoursAddTime: @json(__('opening_hours_add_time'))
     };
 </script>
 <style>
@@ -202,7 +228,9 @@
     .card-body > .settings-section.row {
         --bs-gutter-x: 1.5rem;
     }
-    .pickup-day-card {
+    .pickup-day-card,
+    .delivery-day-card,
+    .opening-hours-day-card {
         height: 100%;
         border: 1px solid #e9eef5;
         border-radius: 18px;
@@ -210,19 +238,25 @@
         box-shadow: 0 12px 30px rgba(18, 38, 63, 0.06);
         padding: 18px;
     }
-    .pickup-day-head {
+    .pickup-day-head,
+    .delivery-day-head,
+    .opening-hours-day-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         margin-bottom: 16px;
     }
-    .pickup-day-title {
+    .pickup-day-title,
+    .delivery-day-title,
+    .opening-hours-day-title {
         font-size: 1rem;
         font-weight: 800;
         margin: 0;
     }
-    .pickup-holiday-toggle {
+    .pickup-holiday-toggle,
+    .delivery-holiday-toggle,
+    .opening-hours-holiday-toggle {
         display: inline-flex;
         align-items: center;
         gap: 8px;
@@ -230,29 +264,41 @@
         font-weight: 700;
         color: #556070;
     }
-    .pickup-slot-list {
+    .pickup-slot-list,
+    .delivery-slot-list,
+    .opening-hours-slot-list {
         display: flex;
         flex-direction: column;
         gap: 10px;
     }
-    .pickup-slot-row {
+    .pickup-slot-row,
+    .delivery-slot-row,
+    .opening-hours-slot-row {
         display: flex;
         align-items: center;
         gap: 10px;
     }
-    .pickup-slot-row .form-control {
+    .pickup-slot-row .form-control,
+    .delivery-slot-row .form-control,
+    .opening-hours-slot-row .form-control {
         min-height: 42px;
     }
-    .pickup-day-card.is-holiday .pickup-slot-wrap {
+    .pickup-day-card.is-holiday .pickup-slot-wrap,
+    .delivery-day-card.is-holiday .delivery-slot-wrap,
+    .opening-hours-day-card.is-holiday .opening-hours-slot-wrap {
         opacity: 0.5;
         pointer-events: none;
     }
-    .pickup-day-note {
+    .pickup-day-note,
+    .delivery-day-note,
+    .opening-hours-day-note {
         font-size: 0.84rem;
         color: #748092;
         margin-top: 10px;
     }
-    .pickup-holiday-badge {
+    .pickup-holiday-badge,
+    .delivery-holiday-badge,
+    .opening-hours-holiday-badge {
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -377,10 +423,19 @@
                                     <a class="nav-link" href="#settings-pickup-schedule">{{ __('settings_tab_pickup_schedule') }}</a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link" href="#settings-delivery-schedule">{{ __('settings_tab_delivery_schedule') }}</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#settings-opening-hours">{{ __('settings_tab_opening_hours') }}</a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link" href="#settings-map-services">{{ __('settings_tab_map_services') }}</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="#settings-payment-methods">{{ __('settings_tab_payment_methods') }}</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#settings-cookie-settings">Cookie Settings</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="#settings-meta-tags">{{ __('settings_tab_meta_tags') }}</a>
@@ -406,11 +461,32 @@
                                 </div>
 
                                 <div class="col-xl-4 col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ __('frontend_footer_address_line_1') }}</label>
+                                    <input type="text" name="frontend_footer_address_line_1" class="form-control"
+                                           value="{{ \App\Models\Setting::get('frontend_footer_address_line_1', '87 Lexington Street') }}"
+                                           placeholder="87 Lexington Street" {{ $guestMode ? 'disabled' : '' }}>
+                                </div>
+
+                                <div class="col-xl-4 col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ __('frontend_footer_address_line_2') }}</label>
+                                    <input type="text" name="frontend_footer_address_line_2" class="form-control"
+                                           value="{{ \App\Models\Setting::get('frontend_footer_address_line_2', '15534 New York') }}"
+                                           placeholder="15534 New York" {{ $guestMode ? 'disabled' : '' }}>
+                                </div>
+
+                                <div class="col-xl-4 col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ __('frontend_footer_phone') }}</label>
+                                    <input type="text" name="frontend_footer_phone" class="form-control"
+                                           value="{{ \App\Models\Setting::get('frontend_footer_phone', '+1 555 123 4567') }}"
+                                           placeholder="+1 555 123 4567" {{ $guestMode ? 'disabled' : '' }}>
+                                </div>
+
+                                <div class="col-xl-4 col-md-6 mb-3">
                                     <label class="form-label fw-bold">{{ __('login_logo') }}</label>
                                     <input type="file" name="login_logo" class="form-control mb-2" {{ $guestMode ? 'disabled' : '' }}>
                                     <div class="preview-box border p-2 text-center bg-light">
                                         <img src="{{ asset('public/' .\App\Models\Setting::get('login_logo', 'public/assets/images/logo/logo.png')) }}"
-                                             style="max-height: 80px; width: auto;">
+                                            style="max-height: 80px; width: auto;">
                                     </div>
                                 </div>
 
@@ -742,6 +818,126 @@
                                                         <div class="pickup-day-note mt-3">
                                                             <span class="pickup-holiday-badge {{ $dayHoliday ? '' : 'd-none' }}">
                                                                 <i class="fa fa-mug-saucer"></i>{{ __('pickup_holiday_active') }}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <div class="row settings-section" id="settings-delivery-schedule">
+                                <div class="col-12 mb-2">
+                                    <h5 class="mb-1">{{ __('settings_delivery_schedule') }}</h5>
+                                    <p class="text-muted mb-0">{{ __('settings_delivery_schedule_desc') }}</p>
+                                </div>
+                                <div class="col-12">
+                                    <fieldset class="border-0 p-0 m-0" {{ $guestMode ? 'disabled' : '' }}>
+                                        <input type="hidden" name="delivery_schedule_json" id="deliveryScheduleJson">
+                                        <div class="row g-4" id="deliveryScheduleEditor">
+                                            @foreach($deliveryWeekDays as $dayKey => $dayLabel)
+                                                @php
+                                                    $daySchedule = is_array($deliverySchedule[$dayKey] ?? null) ? $deliverySchedule[$dayKey] : [];
+                                                    $dayHoliday = (bool) ($daySchedule['holiday'] ?? false);
+                                                    $dayTimes = collect($daySchedule['times'] ?? [])->filter()->values()->all();
+                                                    if (empty($dayTimes)) {
+                                                        $dayTimes = [''];
+                                                    }
+                                                @endphp
+                                                <div class="col-xl-6">
+                                                    <div class="delivery-day-card {{ $dayHoliday ? 'is-holiday' : '' }}" data-delivery-day="{{ $dayKey }}">
+                                                        <div class="delivery-day-head">
+                                                            <div>
+                                                                <h6 class="delivery-day-title">{{ $dayLabel }}</h6>
+                                                                <div class="delivery-day-note">{{ __('settings_delivery_day_note') }}</div>
+                                                            </div>
+                                                            <label class="delivery-holiday-toggle">
+                                                                <input type="checkbox" class="form-check-input mt-0 delivery-holiday-checkbox" {{ $dayHoliday ? 'checked' : '' }}>
+                                                                <span>{{ __('delivery_holiday') }}</span>
+                                                            </label>
+                                                        </div>
+                                                        <div class="delivery-slot-wrap">
+                                                            <div class="delivery-slot-list">
+                                                                @foreach($dayTimes as $slotTime)
+                                                                    <div class="delivery-slot-row">
+                                                                        <input type="time" class="form-control delivery-time-input" value="{{ $slotTime }}">
+                                                                        <button type="button" class="btn btn-outline-danger btn-sm delivery-remove-slot">
+                                                                            <i class="fa fa-trash"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                @endforeach
+                                                            </div>
+                                                            <button type="button" class="btn btn-outline-primary btn-sm mt-3 delivery-add-slot">
+                                                                <i class="fa fa-plus me-1"></i>{{ __('delivery_add_time') }}
+                                                            </button>
+                                                        </div>
+                                                        <div class="delivery-day-note mt-3">
+                                                            <span class="delivery-holiday-badge {{ $dayHoliday ? '' : 'd-none' }}">
+                                                                <i class="fa fa-truck-fast"></i>{{ __('delivery_holiday_active') }}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <div class="row settings-section" id="settings-opening-hours">
+                                <div class="col-12 mb-2">
+                                    <h5 class="mb-1">{{ __('settings_opening_hours') }}</h5>
+                                    <p class="text-muted mb-0">{{ __('settings_opening_hours_desc') }}</p>
+                                </div>
+                                <div class="col-12">
+                                    <fieldset class="border-0 p-0 m-0" {{ $guestMode ? 'disabled' : '' }}>
+                                        <input type="hidden" name="opening_hours_json" id="openingHoursJson">
+                                        <div class="row g-4" id="openingHoursEditor">
+                                            @foreach($openingHoursWeekDays as $dayKey => $dayLabel)
+                                                @php
+                                                    $daySchedule = is_array($openingHoursSchedule[$dayKey] ?? null) ? $openingHoursSchedule[$dayKey] : [];
+                                                    $dayHoliday = (bool) ($daySchedule['holiday'] ?? false);
+                                                    $dayTimes = collect($daySchedule['times'] ?? [])->filter()->values()->all();
+                                                    if (empty($dayTimes)) {
+                                                        $dayTimes = [''];
+                                                    }
+                                                @endphp
+                                                <div class="col-xl-6">
+                                                    <div class="opening-hours-day-card {{ $dayHoliday ? 'is-holiday' : '' }}" data-opening-hours-day="{{ $dayKey }}">
+                                                        <div class="opening-hours-day-head">
+                                                            <div>
+                                                                <h6 class="opening-hours-day-title">{{ $dayLabel }}</h6>
+                                                                <div class="opening-hours-day-note">{{ __('settings_opening_hours_day_note') }}</div>
+                                                            </div>
+                                                            <label class="opening-hours-holiday-toggle">
+                                                                <input type="checkbox" class="form-check-input mt-0 opening-hours-holiday-checkbox" {{ $dayHoliday ? 'checked' : '' }}>
+                                                                <span>{{ __('opening_hours_closed_label') }}</span>
+                                                            </label>
+                                                        </div>
+                                                        <div class="opening-hours-slot-wrap">
+                                                            <div class="opening-hours-slot-list">
+                                                                @foreach($dayTimes as $slotTime)
+                                                                    <div class="opening-hours-slot-row">
+                                                                        <input type="time" class="form-control opening-hours-time-input" value="{{ $slotTime }}">
+                                                                        <button type="button" class="btn btn-outline-danger btn-sm opening-hours-remove-slot">
+                                                                            <i class="fa fa-trash"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                @endforeach
+                                                            </div>
+                                                            <button type="button" class="btn btn-outline-primary btn-sm mt-3 opening-hours-add-slot">
+                                                                <i class="fa fa-plus me-1"></i>{{ __('opening_hours_add_time') }}
+                                                            </button>
+                                                        </div>
+                                                        <div class="opening-hours-day-note mt-3">
+                                                            <span class="opening-hours-holiday-badge {{ $dayHoliday ? '' : 'd-none' }}">
+                                                                <i class="fa fa-door-closed"></i>{{ __('opening_hours_closed_today') }}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -1441,10 +1637,25 @@
 
                             <hr class="my-4">
 
+                            @include('setting.partials.cookie-settings', [
+                                'guestMode' => $guestMode,
+                                'cookieBannerEnabled' => $cookieBannerEnabled,
+                                'cookieBannerConfig' => $cookieBannerConfig,
+                                'cookieCategories' => $cookieCategories,
+                            ])
+
+                            <hr class="my-4">
+
                             <div class="row settings-section" id="settings-meta-tags">
                                 <div class="col-12 mb-2">
                                     <h5 class="mb-1">{{ __('settings_meta_tags') }}</h5>
                                     <p class="text-muted mb-0">{{ __('settings_meta_tags_desc') }}</p>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ __('settings_meta_title') }}</label>
+                                    <input type="text" name="meta_title" class="form-control"
+                                           value="{{ \App\Models\Setting::get('meta_title', 'WooFood') }}">
                                 </div>
 
                                 <div class="col-md-6 mb-3">
@@ -1835,8 +2046,6 @@
             return;
         }
 
-        const emptySlotLabel = @json(__('pickup_add_time'));
-
         const syncSchedule = () => {
             const schedule = {};
             editor.querySelectorAll('[data-pickup-day]').forEach((card) => {
@@ -1903,6 +2112,166 @@
 
         editor.addEventListener('change', (event) => {
             if (event.target.classList.contains('pickup-holiday-checkbox')) {
+                syncSchedule();
+            }
+        });
+
+        syncSchedule();
+    })();
+
+    (function() {
+        const editor = document.getElementById('deliveryScheduleEditor');
+        const hiddenInput = document.getElementById('deliveryScheduleJson');
+        if (!editor || !hiddenInput) {
+            return;
+        }
+
+        const syncSchedule = () => {
+            const schedule = {};
+            editor.querySelectorAll('[data-delivery-day]').forEach((card) => {
+                const day = card.getAttribute('data-delivery-day');
+                const holiday = card.querySelector('.delivery-holiday-checkbox')?.checked || false;
+                const times = Array.from(card.querySelectorAll('.delivery-time-input'))
+                    .map((input) => input.value)
+                    .filter((value) => value);
+
+                card.classList.toggle('is-holiday', holiday);
+                const holidayBadge = card.querySelector('.delivery-holiday-badge');
+                if (holidayBadge) {
+                    holidayBadge.classList.toggle('d-none', !holiday);
+                }
+
+                schedule[day] = {
+                    holiday,
+                    times: holiday ? [] : times,
+                };
+            });
+
+            hiddenInput.value = JSON.stringify(schedule);
+        };
+
+        const createSlotRow = () => {
+            const row = document.createElement('div');
+            row.className = 'delivery-slot-row';
+            row.innerHTML = `
+                <input type="time" class="form-control delivery-time-input" value="">
+                <button type="button" class="btn btn-outline-danger btn-sm delivery-remove-slot">
+                    <i class="fa fa-trash"></i>
+                </button>
+            `;
+            return row;
+        };
+
+        editor.addEventListener('click', (event) => {
+            const addBtn = event.target.closest('.delivery-add-slot');
+            if (addBtn) {
+                const card = addBtn.closest('[data-delivery-day]');
+                card.querySelector('.delivery-slot-list')?.appendChild(createSlotRow());
+                syncSchedule();
+                return;
+            }
+
+            const removeBtn = event.target.closest('.delivery-remove-slot');
+            if (removeBtn) {
+                const list = removeBtn.closest('.delivery-slot-list');
+                const rows = list ? list.querySelectorAll('.delivery-slot-row') : [];
+                if (rows.length > 1) {
+                    removeBtn.closest('.delivery-slot-row')?.remove();
+                } else if (rows[0]) {
+                    rows[0].querySelector('.delivery-time-input').value = '';
+                }
+                syncSchedule();
+            }
+        });
+
+        editor.addEventListener('input', (event) => {
+            if (event.target.classList.contains('delivery-time-input')) {
+                syncSchedule();
+            }
+        });
+
+        editor.addEventListener('change', (event) => {
+            if (event.target.classList.contains('delivery-holiday-checkbox')) {
+                syncSchedule();
+            }
+        });
+
+        syncSchedule();
+    })();
+
+    (function() {
+        const editor = document.getElementById('openingHoursEditor');
+        const hiddenInput = document.getElementById('openingHoursJson');
+        if (!editor || !hiddenInput) {
+            return;
+        }
+
+        const syncSchedule = () => {
+            const schedule = {};
+            editor.querySelectorAll('[data-opening-hours-day]').forEach((card) => {
+                const day = card.getAttribute('data-opening-hours-day');
+                const holiday = card.querySelector('.opening-hours-holiday-checkbox')?.checked || false;
+                const times = Array.from(card.querySelectorAll('.opening-hours-time-input'))
+                    .map((input) => input.value)
+                    .filter((value) => value);
+
+                card.classList.toggle('is-holiday', holiday);
+                const holidayBadge = card.querySelector('.opening-hours-holiday-badge');
+                if (holidayBadge) {
+                    holidayBadge.classList.toggle('d-none', !holiday);
+                }
+
+                schedule[day] = {
+                    holiday,
+                    times: holiday ? [] : times,
+                };
+            });
+
+            hiddenInput.value = JSON.stringify(schedule);
+        };
+
+        const createSlotRow = () => {
+            const row = document.createElement('div');
+            row.className = 'opening-hours-slot-row';
+            row.innerHTML = `
+                <input type="time" class="form-control opening-hours-time-input" value="">
+                <button type="button" class="btn btn-outline-danger btn-sm opening-hours-remove-slot">
+                    <i class="fa fa-trash"></i>
+                </button>
+            `;
+            return row;
+        };
+
+        editor.addEventListener('click', (event) => {
+            const addBtn = event.target.closest('.opening-hours-add-slot');
+            if (addBtn) {
+                const card = addBtn.closest('[data-opening-hours-day]');
+                card.querySelector('.opening-hours-slot-list')?.appendChild(createSlotRow());
+                syncSchedule();
+                return;
+            }
+
+            const removeBtn = event.target.closest('.opening-hours-remove-slot');
+            if (removeBtn) {
+                const list = removeBtn.closest('.opening-hours-slot-list');
+                const rows = list ? list.querySelectorAll('.opening-hours-slot-row') : [];
+                if (rows.length > 1) {
+                    removeBtn.closest('.opening-hours-slot-row')?.remove();
+                } else if (rows[0]) {
+                    rows[0].querySelector('.opening-hours-time-input').value = '';
+                }
+                syncSchedule();
+            }
+        });
+
+        editor.addEventListener('input', (event) => {
+            if (event.target.classList.contains('opening-hours-time-input')) {
+                syncSchedule();
+            }
+        });
+
+        editor.addEventListener('change', (event) => {
+            if (event.target.classList.contains('opening-hours-holiday-checkbox')) {
                 syncSchedule();
             }
         });

@@ -72,6 +72,16 @@ class LoginController extends Controller
 
     protected function authenticated(Request $request, $user)
     {
+        if ($user->hasAnyRole(['Staff', 'Driver'])) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('admin.login')->withErrors([
+                'email' => 'Staff and drivers can only log in from the frontend portal.',
+            ]);
+        }
+
         $this->logPortalVisit($request, $user);
         return null;
     }

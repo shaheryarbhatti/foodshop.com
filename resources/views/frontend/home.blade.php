@@ -67,7 +67,6 @@
     })->values();
 @endphp
 
-@section('title', __('frontend_homepage'))
 
 @section('styles')
 <link rel="stylesheet" href="{{ asset('public/assets/css/vendors/select2.css') }}">

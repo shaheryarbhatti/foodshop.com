@@ -202,11 +202,67 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="assignDriverModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content order-status-modal">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <div class="order-route-modal__eyebrow">Driver Assignment</div>
+                    <h5 class="modal-title mb-1" id="assignDriverModalTitle">Assign Driver</h5>
+                    <small class="text-muted">Drivers are filtered by the branch attached to this order.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('close') }}"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <form id="assignDriverForm">
+                    <input type="hidden" id="assignDriverOrderId">
+                    <div class="mb-3">
+                        <label for="assignDriverSelect" class="form-label fw-semibold">Driver</label>
+                        <select id="assignDriverSelect" class="form-select"></select>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary" id="assignDriverSaveButton">Assign Driver</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="changeBranchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content order-status-modal">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <div class="order-route-modal__eyebrow">{{ __('change_branch') }}</div>
+                    <h5 class="modal-title mb-1" id="changeBranchModalTitle">{{ __('change_branch') }}</h5>
+                    <small class="text-muted">{{ __('change_branch_modal_hint') }}</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('close') }}"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <form id="changeBranchForm">
+                    <input type="hidden" id="changeBranchOrderId">
+                    <div class="alert alert-info small mb-3">{{ __('branch_change_notice') }}</div>
+                    <div class="mb-3">
+                        <label for="changeBranchSelect" class="form-label fw-semibold">{{ __('select_branch') }}</label>
+                        <select id="changeBranchSelect" class="form-select"></select>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary" id="changeBranchSaveButton">{{ __('change_branch_button') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('styles')
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+<link rel="stylesheet" href="{{ asset('public/assets/css/vendors/select2.css') }}">
 @unless($canUseGoogleMaps)
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 @endunless
@@ -258,6 +314,10 @@ div.dataTables_wrapper div.dataTables_filter { position: absolute; right: 53px; 
 .route-map-shell__head { padding: 22px 24px 0; }
 #orderRouteMapCanvas { height: 480px; margin: 20px; border-radius: 20px; overflow: hidden; background: linear-gradient(180deg, #eff6ff, #f8fafc); }
 .leaflet-popup-content-wrapper { border-radius: 14px; }
+.select2-container { width: 100% !important; }
+.select2-container .select2-selection--single { min-height: 44px; border-radius: 12px; border-color: rgba(15, 23, 42, 0.12); padding: 7px 12px; }
+.select2-container .select2-selection--single .select2-selection__rendered { line-height: 28px; padding-left: 0; }
+.select2-container .select2-selection--single .select2-selection__arrow { height: 42px; }
 @media (max-width: 991.98px) { #orderRouteMapCanvas { height: 360px; } }
 @media (max-width: 576px) {
 div.dataTables_wrapper div.dataTables_filter { position: static; margin-top: 12px; }
@@ -273,6 +333,7 @@ div.dataTables_wrapper div.dataTables_filter { position: static; margin-top: 12p
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+<script src="{{ asset('public/assets/js/select2/select2.full.min.js') }}"></script>
 @unless($canUseGoogleMaps)
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 @endunless
@@ -305,7 +366,7 @@ window.initOrdersManagePage = function () {
         ],
         pageLength: 10,
         lengthMenu: [10, 25, 50, 100],
-        order: [[8, 'desc']],
+        order: [],
         language: { processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>' },
         responsive: true,
         dom: '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>tip'
@@ -335,6 +396,10 @@ window.initOrdersManagePage = function () {
     const invoiceModal = new bootstrap.Modal(invoiceModalElement);
     const statusModalElement = document.getElementById('orderStatusModal');
     const statusModal = new bootstrap.Modal(statusModalElement);
+    const assignDriverModalElement = document.getElementById('assignDriverModal');
+    const assignDriverModal = new bootstrap.Modal(assignDriverModalElement);
+    const changeBranchModalElement = document.getElementById('changeBranchModal');
+    const changeBranchModal = new bootstrap.Modal(changeBranchModalElement);
     const invoiceFrame = document.getElementById('orderInvoiceFrame');
     const invoiceTitle = document.getElementById('orderInvoiceTitle');
     const orderStatusModalTitle = document.getElementById('orderStatusModalTitle');
@@ -342,6 +407,16 @@ window.initOrdersManagePage = function () {
     const orderStatusSelect = document.getElementById('orderStatusSelect');
     const orderStatusUpdateUrl = document.getElementById('orderStatusUpdateUrl');
     const orderStatusSaveButton = document.getElementById('orderStatusSaveButton');
+    const assignDriverModalTitle = document.getElementById('assignDriverModalTitle');
+    const assignDriverForm = document.getElementById('assignDriverForm');
+    const assignDriverOrderId = document.getElementById('assignDriverOrderId');
+    const assignDriverSelect = document.getElementById('assignDriverSelect');
+    const assignDriverSaveButton = document.getElementById('assignDriverSaveButton');
+    const changeBranchModalTitle = document.getElementById('changeBranchModalTitle');
+    const changeBranchForm = document.getElementById('changeBranchForm');
+    const changeBranchOrderId = document.getElementById('changeBranchOrderId');
+    const changeBranchSelect = document.getElementById('changeBranchSelect');
+    const changeBranchSaveButton = document.getElementById('changeBranchSaveButton');
     const routeGoogleMapsButton = document.getElementById('routeGoogleMapsButton');
     let leafletMap;
     let leafletMarkers = [];
@@ -353,6 +428,22 @@ window.initOrdersManagePage = function () {
     let googleCustomerMarker;
     let googleFallbackPolyline;
     let routeRequestToken = 0;
+
+    const initBranchSelect = function () {
+        if (!(window.jQuery && jQuery.fn.select2 && changeBranchSelect)) { return; }
+
+        const $select = $('#changeBranchSelect');
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
+        }
+
+        $select.select2({
+            width: '100%',
+            dropdownParent: $('#changeBranchModal'),
+            placeholder: @json(__('select_branch')),
+            allowClear: true
+        });
+    };
 
     const resetLeafletRoute = function () {
         if (!leafletMap) { return; }
@@ -605,6 +696,86 @@ window.initOrdersManagePage = function () {
         statusModal.show();
     });
 
+    $(document).on('click', '.js-open-driver-assign-modal', function () {
+        const button = this;
+        const orderId = button.dataset.orderId || '';
+        const orderNumber = button.dataset.orderNumber || '#';
+        if (!orderId) { return; }
+
+        assignDriverModalTitle.textContent = `Assign Driver - ${orderNumber}`;
+        assignDriverOrderId.value = orderId;
+        assignDriverSelect.innerHTML = '<option value="">Loading drivers...</option>';
+        assignDriverSaveButton.disabled = true;
+        assignDriverModal.show();
+
+        $.ajax({
+            url: `{{ url('/orders') }}/${orderId}/available-drivers`,
+            type: 'GET',
+            success: function (response) {
+                const drivers = Array.isArray(response.drivers) ? response.drivers : [];
+                const assignedId = response.assigned_driver_id ? String(response.assigned_driver_id) : '';
+                if (!drivers.length) {
+                    assignDriverSelect.innerHTML = '<option value="">No drivers available for this branch</option>';
+                    assignDriverSaveButton.disabled = true;
+                    return;
+                }
+
+                assignDriverSelect.innerHTML = '<option value="">Select driver</option>' + drivers.map(driver => {
+                    const selected = assignedId === String(driver.id) ? 'selected' : '';
+                    return `<option value="${driver.id}" ${selected}>${driver.name}${driver.email ? ' - ' + driver.email : ''}</option>`;
+                }).join('');
+                assignDriverSaveButton.disabled = false;
+            },
+            error: function () {
+                assignDriverSelect.innerHTML = '<option value="">Unable to load drivers</option>';
+                assignDriverSaveButton.disabled = true;
+            }
+        });
+    });
+
+    $(document).on('click', '.js-open-branch-change-modal', function () {
+        const button = this;
+        const orderId = button.dataset.orderId || '';
+        const orderNumber = button.dataset.orderNumber || '#';
+        if (!orderId) { return; }
+
+        changeBranchModalTitle.textContent = `${@json(__('change_branch'))} - ${orderNumber}`;
+        changeBranchOrderId.value = orderId;
+        changeBranchSelect.innerHTML = `<option value="">${@json(__('loading'))}</option>`;
+        changeBranchSaveButton.disabled = true;
+        changeBranchModal.show();
+        initBranchSelect();
+
+        $.ajax({
+            url: `{{ url('/orders') }}/${orderId}/available-branches`,
+            type: 'GET',
+            success: function (response) {
+                const branches = Array.isArray(response.branches) ? response.branches : [];
+                const selectedId = response.selected_branch_id ? String(response.selected_branch_id) : '';
+
+                if (!branches.length) {
+                    changeBranchSelect.innerHTML = '<option value="">No branches available</option>';
+                    initBranchSelect();
+                    changeBranchSaveButton.disabled = true;
+                    return;
+                }
+
+                changeBranchSelect.innerHTML = '<option value=""></option>' + branches.map(branch => {
+                    const selected = selectedId === String(branch.id) ? 'selected' : '';
+                    const details = [branch.location, branch.address].filter(Boolean).join(' - ');
+                    return `<option value="${branch.id}" ${selected}>${branch.name}${details ? ' - ' + details : ''}</option>`;
+                }).join('');
+                initBranchSelect();
+                changeBranchSaveButton.disabled = false;
+            },
+            error: function () {
+                changeBranchSelect.innerHTML = '<option value="">Unable to load branches</option>';
+                initBranchSelect();
+                changeBranchSaveButton.disabled = true;
+            }
+        });
+    });
+
     orderStatusForm?.addEventListener('submit', function (event) {
         event.preventDefault();
 
@@ -640,6 +811,94 @@ window.initOrdersManagePage = function () {
                 text: xhr.responseJSON?.message || @json(__('order_status_update_failed')),
                 confirmButtonText: @json(__('ok'))
             });
+        });
+    });
+
+    assignDriverForm?.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const orderId = assignDriverOrderId.value;
+        const driverId = assignDriverSelect.value;
+        if (!orderId || !driverId) {
+            return;
+        }
+
+        const defaultText = assignDriverSaveButton.textContent;
+        assignDriverSaveButton.disabled = true;
+        assignDriverSaveButton.textContent = 'Assigning...';
+
+        $.ajax({
+            url: `{{ url('/orders') }}/${orderId}/assign-driver`,
+            type: 'PATCH',
+            data: { _token: @json(csrf_token()), driver_id: driverId },
+            success: function () {
+                assignDriverSaveButton.disabled = false;
+                assignDriverSaveButton.textContent = defaultText;
+                assignDriverModal.hide();
+                table.ajax.reload(null, false);
+                Swal.fire({
+                    icon: 'success',
+                    title: @json(__('success')),
+                    text: 'Driver assigned successfully.',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    padding: '2em'
+                });
+            },
+            error: function (xhr) {
+                assignDriverSaveButton.disabled = false;
+                assignDriverSaveButton.textContent = defaultText;
+                Swal.fire({
+                    icon: 'error',
+                    title: @json(__('error')),
+                    text: xhr.responseJSON?.message || 'Unable to assign driver right now.',
+                    confirmButtonText: @json(__('ok'))
+                });
+            }
+        });
+    });
+
+    changeBranchForm?.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const orderId = changeBranchOrderId.value;
+        const organizationId = changeBranchSelect.value;
+        if (!orderId || !organizationId) {
+            return;
+        }
+
+        const defaultText = changeBranchSaveButton.textContent;
+        changeBranchSaveButton.disabled = true;
+        changeBranchSaveButton.textContent = @json(__('loading'));
+
+        $.ajax({
+            url: `{{ url('/orders') }}/${orderId}/change-branch`,
+            type: 'PATCH',
+            data: { _token: @json(csrf_token()), organization_id: organizationId },
+            success: function (response) {
+                changeBranchSaveButton.disabled = false;
+                changeBranchSaveButton.textContent = defaultText;
+                changeBranchModal.hide();
+                table.ajax.reload(null, false);
+                Swal.fire({
+                    icon: 'success',
+                    title: @json(__('success')),
+                    text: response.message || @json(__('order_branch_updated_successfully')),
+                    timer: 2200,
+                    showConfirmButton: false,
+                    padding: '2em'
+                });
+            },
+            error: function (xhr) {
+                changeBranchSaveButton.disabled = false;
+                changeBranchSaveButton.textContent = defaultText;
+                Swal.fire({
+                    icon: 'error',
+                    title: @json(__('error')),
+                    text: xhr.responseJSON?.message || @json(__('selected_branch_is_not_available')),
+                    confirmButtonText: @json(__('ok'))
+                });
+            }
         });
     });
 
