@@ -21,12 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $router = app('router');
-        $groups = method_exists($router, 'getMiddlewareGroups') ? $router->getMiddlewareGroups() : [];
-        $web = $groups['web'] ?? [];
-        if (! in_array(\App\Http\Middleware\AccessGate::class, $web, true)) {
-            abort(403, 'License enforcement is required.');
-        }
+        Schema::defaultStringLength(191);
 
         try {
             if (Schema::hasTable('roles') && Schema::hasTable('permissions')) {

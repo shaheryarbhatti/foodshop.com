@@ -36,7 +36,7 @@ Route::get('/clear', function () {
     return "Cleared!";
 });
 
-Route::middleware(['auth'])->post('/license/update', [SettingController::class, 'updateLicense'])->name('license.update');
+Route::middleware(['auth', 'license'])->post('/license/update', [SettingController::class, 'updateLicense'])->name('license.update');
 
 Route::middleware('guest')->group(function () {
     Route::get('/admin-login', [LoginController::class, 'showLoginForm'])->name('admin.login');
@@ -70,14 +70,14 @@ Route::get('/language/{locale}', function ($locale) {
     return redirect()->back();
 })->name('language.switch');
 
-Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
-Route::get('/userlogout', [App\Http\Controllers\HomeController::class, 'logout'])->name('userlogout');
-Route::middleware(['auth'])->get('/documentation', function () {
+Route::middleware(['auth', 'license'])->get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+Route::middleware(['auth', 'license'])->get('/userlogout', [App\Http\Controllers\HomeController::class, 'logout'])->name('userlogout');
+Route::middleware(['auth', 'license'])->get('/documentation', function () {
     return view('documentation.index');
 })->name('documentation');
 
 // Permission Management Routes
-Route::middleware(['auth'])->prefix('permissions')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('permissions')->group(function () {
 
     Route::get('/', [PermissionController::class, 'index'])->name('permissions.manage');
     Route::get('/create', [PermissionController::class, 'create'])->name('permissions.add');
@@ -89,7 +89,7 @@ Route::middleware(['auth'])->prefix('permissions')->group(function () {
 });
 
 // Role Management Routes
-Route::middleware(['auth'])->prefix('roles')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('roles')->group(function () {
 
     Route::get('/', [RoleController::class, 'index'])->name('roles.manage');
     Route::get('/create', [RoleController::class, 'create'])->name('roles.add');
@@ -101,7 +101,7 @@ Route::middleware(['auth'])->prefix('roles')->group(function () {
 });
 
 // User Management Routes
-Route::middleware(['auth'])->prefix('users')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('users')->group(function () {
 
     Route::get('/', [UserController::class, 'index'])->name('users.manage');
     Route::get('/create', [UserController::class, 'create'])->name('users.add');
@@ -114,7 +114,7 @@ Route::middleware(['auth'])->prefix('users')->group(function () {
 });
 
 // Currency Management Routes
-Route::middleware(['auth'])->prefix('currencies')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('currencies')->group(function () {
 
     Route::get('/', [CurrencyController::class, 'index'])->name('currencies.manage');
     Route::get('/create', [CurrencyController::class, 'create'])->name('currencies.add');
@@ -127,7 +127,7 @@ Route::middleware(['auth'])->prefix('currencies')->group(function () {
 
 });
 
-Route::middleware(['auth'])->prefix('organizations')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('organizations')->group(function () {
 
     Route::get('/', [OrganizationController::class, 'index'])->name('organizations.manage');
     Route::get('/create', [OrganizationController::class, 'create'])->name('organizations.add');
@@ -141,7 +141,7 @@ Route::middleware(['auth'])->prefix('organizations')->group(function () {
 
 });
 
-Route::middleware(['auth'])->prefix('countries')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('countries')->group(function () {
 
     Route::get('/', [CountryController::class, 'index'])->name('countries.manage');
     Route::get('/create', [CountryController::class, 'create'])->name('countries.add');
@@ -152,7 +152,7 @@ Route::middleware(['auth'])->prefix('countries')->group(function () {
 
 });
 
-Route::middleware(['auth'])->prefix('regions')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('regions')->group(function () {
 
     Route::get('/', [RegionController::class, 'index'])->name('regions.manage');
     Route::get('/create', [RegionController::class, 'create'])->name('regions.add');
@@ -163,7 +163,7 @@ Route::middleware(['auth'])->prefix('regions')->group(function () {
 
 });
 
-Route::middleware(['auth'])->prefix('locations')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('locations')->group(function () {
 
     Route::get('/', [LocationController::class, 'index'])->name('locations.manage');
     Route::get('/create', [LocationController::class, 'create'])->name('locations.add');
@@ -179,7 +179,7 @@ Route::middleware(['auth'])->prefix('locations')->group(function () {
 
 
 
-Route::middleware(['auth'])->prefix('allergies')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('allergies')->group(function () {
     Route::get('/', [AllergyController::class, 'index'])->name('allergies.manage');
     Route::get('/create', [AllergyController::class, 'create'])->name('allergies.add');
     Route::post('/', [AllergyController::class, 'store'])->name('allergies.store');
@@ -189,7 +189,7 @@ Route::middleware(['auth'])->prefix('allergies')->group(function () {
     Route::delete('/{allergy}', [AllergyController::class, 'destroy'])->name('allergies.destroy');
 });
 
-Route::middleware(['auth'])->prefix('categories')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('categories')->group(function () {
 
     Route::get('/', [CategoryController::class, 'index'])->name('categories.manage');
     Route::get('/create', [CategoryController::class, 'create'])->name('categories.add');
@@ -200,7 +200,7 @@ Route::middleware(['auth'])->prefix('categories')->group(function () {
 
 });
 
-Route::middleware(['auth'])->prefix('products')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('products')->group(function () {
     Route::get('/', [ProductController::class, 'index'])->name('products.manage');
     Route::get('/export-excel', [ProductController::class, 'exportExcel'])->name('products.exportExcel');
     Route::post('/import-excel', [ProductController::class, 'importExcel'])->name('products.importExcel');
@@ -212,7 +212,7 @@ Route::middleware(['auth'])->prefix('products')->group(function () {
     Route::delete('/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 });
 
-Route::middleware(['auth'])->prefix('addons')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('addons')->group(function () {
     Route::get('/', [ProductAddonController::class, 'index'])->name('addons.manage');
     Route::get('/create', [ProductAddonController::class, 'create'])->name('addons.add');
     Route::post('/', [ProductAddonController::class, 'store'])->name('addons.store');
@@ -222,7 +222,7 @@ Route::middleware(['auth'])->prefix('addons')->group(function () {
     Route::delete('/{addon}', [ProductAddonController::class, 'destroy'])->name('addons.destroy');
 });
 
-Route::middleware(['auth'])->prefix('taxes')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('taxes')->group(function () {
     Route::get('/', [TaxController::class, 'index'])->name('taxes.manage');
     Route::get('/create', [TaxController::class, 'create'])->name('taxes.add');
     Route::post('/', [TaxController::class, 'store'])->name('taxes.store');
@@ -232,7 +232,7 @@ Route::middleware(['auth'])->prefix('taxes')->group(function () {
     Route::delete('/{tax}', [TaxController::class, 'destroy'])->name('taxes.destroy');
 });
 
-Route::middleware(['auth'])->prefix('shipping-fees')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('shipping-fees')->group(function () {
     Route::get('/', [ShippingFeeController::class, 'index'])->name('shipping.manage');
     Route::get('/create', [ShippingFeeController::class, 'create'])->name('shipping.add');
     Route::post('/', [ShippingFeeController::class, 'store'])->name('shipping.store');
@@ -242,7 +242,7 @@ Route::middleware(['auth'])->prefix('shipping-fees')->group(function () {
     Route::delete('/{shipping}', [ShippingFeeController::class, 'destroy'])->name('shipping.destroy');
 });
 
-Route::middleware(['auth'])->prefix('customers')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('customers')->group(function () {
     Route::get('/', [CustomerController::class, 'index'])->name('customers.manage');
     Route::get('/create', [CustomerController::class, 'create'])->name('customers.add');
     Route::post('/', [CustomerController::class, 'store'])->name('customers.store');
@@ -252,7 +252,7 @@ Route::middleware(['auth'])->prefix('customers')->group(function () {
     Route::delete('/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
 });
 
-Route::middleware(['auth'])->prefix('orders')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('orders')->group(function () {
     Route::get('/', [OrderController::class, 'index'])->name('orders.manage');
     Route::get('/{order}/available-drivers', [OrderController::class, 'availableDrivers'])->name('orders.available-drivers');
     Route::get('/{order}/available-branches', [OrderController::class, 'availableBranches'])->name('orders.available-branches');
@@ -265,7 +265,7 @@ Route::middleware(['auth'])->prefix('orders')->group(function () {
     Route::get('/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
     Route::get('/{order}/invoice/download', [OrderController::class, 'downloadInvoice'])->name('orders.invoice.download');
 });
-Route::middleware(['auth'])->prefix('sidebar-management')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('sidebar-management')->group(function () {
 
     Route::get('/', [SidebarManagementController::class, 'index'])->name('sidebar.manage');
     Route::get('/create', [SidebarManagementController::class, 'create'])->name('sidebar.module.create');
@@ -279,12 +279,12 @@ Route::middleware(['auth'])->prefix('sidebar-management')->group(function () {
 });
 
 // Setting Management Routes
-Route::middleware(['auth'])->prefix('settings')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('settings')->group(function () {
     Route::get('/', [SettingController::class, 'index'])->name('settings.index');
     Route::post('/update', [SettingController::class, 'update'])->name('settings.update');
 });
 
-Route::middleware(['auth'])->prefix('email-template')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('email-template')->group(function () {
     Route::get('/', [EmailTemplateController::class, 'manage'])->name('email.manage');
     Route::post('/', [EmailTemplateController::class, 'update'])->name('email.update');
     Route::post('/test', [EmailTemplateController::class, 'sendTest'])->name('email.test');

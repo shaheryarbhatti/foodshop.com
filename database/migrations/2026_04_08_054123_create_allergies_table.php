@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('allergies', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->string('code')->unique();
+            $table->string('code', 191)->unique();
             $table->boolean('status')->default(true);
             $table->timestamps();
         });

@@ -39,7 +39,7 @@ Route::get('/address-search', [FrontendCustomerAuthController::class, 'addressSe
 Route::post('/geocode-address', [FrontendCustomerAuthController::class, 'geocodeAddress'])->name('frontend.geocode-address');
 Route::post('/reverse-geocode-address', [FrontendCustomerAuthController::class, 'reverseGeocodeAddress'])->name('frontend.reverse-geocode-address');
 
-Route::middleware('auth')->prefix('staff')->group(function () {
+Route::middleware(['auth', 'license'])->prefix('staff')->group(function () {
     Route::get('/dashboard', [FrontendStaffPortalController::class, 'dashboard'])->name('frontend.staff.dashboard');
     Route::get('/route-planner-data', [FrontendStaffPortalController::class, 'routePlannerData'])->name('frontend.staff.route-planner-data');
     Route::get('/orders/{order}/available-drivers', [FrontendStaffPortalController::class, 'availableDrivers'])->name('frontend.staff.orders.available-drivers');
