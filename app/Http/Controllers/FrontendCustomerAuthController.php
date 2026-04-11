@@ -23,9 +23,9 @@ class FrontendCustomerAuthController extends Controller
     public function showLogin()
     {
         if (Auth::check()) {
-            return Auth::user()->hasAnyRole(['Staff', 'Driver'])
-                ? redirect()->route('frontend.staff.dashboard')
-                : redirect()->route('home');
+            if (Auth::user()->hasAnyRole(['Staff', 'Driver'])) {
+                return redirect()->route('frontend.staff.dashboard');
+            }
         }
 
         if (session()->has('frontend_customer_id')) {
@@ -105,8 +105,10 @@ class FrontendCustomerAuthController extends Controller
 
     public function showRegister()
     {
-        if (Auth::check() && Auth::user()->hasAnyRole(['Staff', 'Driver'])) {
-            return redirect()->route('frontend.staff.dashboard');
+        if (Auth::check()) {
+            if (Auth::user()->hasAnyRole(['Staff', 'Driver'])) {
+                return redirect()->route('frontend.staff.dashboard');
+            }
         }
 
         if (session()->has('frontend_customer_id')) {

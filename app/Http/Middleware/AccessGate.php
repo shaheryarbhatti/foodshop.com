@@ -71,7 +71,7 @@ class AccessGate
                 : null;
             return redirect()->route('license.invalid')->with([
                 'license_error' => __('license_server_unreachable'),
-                'license_debug' => $debug,
+                // 'license_debug' => $debug,
             ]);
         }
 
@@ -83,16 +83,18 @@ class AccessGate
         if (! $response->ok()) {
             $message = $response->json('message') ?: __('license_invalid');
             return redirect()->route('license.invalid')->with([
-                'license_error' => $message,
-                'license_debug' => $debugPayload,
+                'license_error' =>  __('license_invalid'),
+                // 'license_error' => $message,
+                // 'license_debug' => $debugPayload,
             ]);
         }
 
         $data = $response->json();
         if (! ($data['valid'] ?? false)) {
             return redirect()->route('license.invalid')->with([
-                'license_error' => $data['message'] ?? __('license_invalid'),
-                'license_debug' => $debugPayload,
+                'license_error' =>  __('license_invalid'),
+                // 'license_error' => $data['message'] ?? __('license_invalid'),
+                // 'license_debug' => $debugPayload,
             ]);
         }
 
