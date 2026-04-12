@@ -23,9 +23,20 @@ class GuestModeBlock
             return $next($request);
         }
 
-        if ($request->routeIs('login', 'logout', 'userlogout', 'password.*')
+        if ($request->routeIs(
+                'login',
+                'logout',
+                'userlogout',
+                'password.*',
+                'admin.login',
+                'admin.login.submit',
+                'frontend.login.submit',
+                'frontend.register.submit'
+            )
             || $request->is('login')
-            || $request->is('logout')) {
+            || $request->is('logout')
+            || $request->is('admin-login')
+            || $request->is('register')) {
             return $next($request);
         }
 
