@@ -29,16 +29,30 @@ class GuestModeBlock
             return $next($request);
         }
 
-        $message = match ($method) {
-            'DELETE' => 'You cannot delete anything in guest mode.',
-            'PUT', 'PATCH' => 'You cannot update anything in guest mode.',
-            default => 'You cannot save anything in guest mode.',
-        };
+        $message = $this->resolveGuestModeMessage($request, $method);
 
         if ($request->expectsJson()) {
             return response()->json(['message' => $message], 403);
         }
 
         return redirect()->back()->with('guest_mode_block', $message);
+    }
+
+    private function resolveGuestModeMessage(Request $request, string $method): string
+    {
+        if ($request->routeIs(
+            'frontend.checkout.submit',
+            'frontend.checkout.payment-intent',
+            'frontend.orders.process-balance',
+            'frontend.orders.balance-intent'
+        )) {
+            return 'You cannot place an order in guest mode.';
+        }
+
+        return match ($method) {
+            'DELETE' => 'You cannot delete anything in guest mode.',
+            'PUT', 'PATCH' => 'You cannot update anything in guest mode.',
+            default => 'You cannot save anything in guest mode.',
+        };
     }
 }
