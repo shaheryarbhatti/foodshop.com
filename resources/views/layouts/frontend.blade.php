@@ -63,6 +63,11 @@
         html {
             overflow-x: hidden;
             width: 100%;
+            scrollbar-gutter: stable;
+        }
+
+        body.modal-open {
+            padding-right: 0 !important;
         }
 
         .portal-shell {
