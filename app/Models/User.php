@@ -61,4 +61,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class, 'driver_id');
     }
+
+    public function adminNotifications()
+    {
+        return $this->hasMany(AdminNotification::class)->latest('id');
+    }
 }

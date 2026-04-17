@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminNotification;
 use App\Models\Organization;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\DriverAutoDispatchService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -87,8 +89,28 @@ class OrderController extends Controller
                     return $this->orderStatusBadge($order->order_status);
                 })
                 ->addColumn('grand_total_display', function (Order $order) {
-                    return '<div class="fw-semibold text-dark">' . e($this->money($order->payment_currency, $order->grand_total)) . '</div>'
+                    $html = '<div class="fw-semibold text-dark">' . e($this->money($order->payment_currency, $order->grand_total)) . '</div>'
                         . '<div class="small text-muted">' . e(__('subtotal')) . ': ' . e($this->money($order->payment_currency, $order->subtotal)) . '</div>';
+
+                    if ((float) $order->discount_amount > 0) {
+                        $html .= '<div class="small text-success">' . e(__('coupon_discount')) . ': -' . e($this->money($order->payment_currency, $order->discount_amount)) . '</div>';
+                        if (filled($order->coupon_code)) {
+                            $html .= '<div class="small text-muted">' . e(__('coupon_code')) . ': ' . e($order->coupon_code) . '</div>';
+                        }
+                    }
+
+                    return $html;
+                })
+                ->addColumn('extra_paid_display', function (Order $order) {
+                    $extraPaidAmount = (float) ($order->extra_amount_paid ?? 0);
+                    $isPaid = $extraPaidAmount > 0;
+
+                    $html = '<div class="fw-semibold text-dark">' . e($extraPaidAmount > 0 ? $this->money($order->payment_currency, $extraPaidAmount) : $this->money($order->payment_currency, 0)) . '</div>';
+                    $html .= '<div class="small ' . ($isPaid ? 'text-success' : 'text-muted') . '">'
+                        . e($isPaid ? __('paid') : __('not_paid_yet'))
+                        . '</div>';
+
+                    return $html;
                 })
                 ->addColumn('action', function (Order $order) use ($user) {
                     $canView = $this->userCanAny($user, ['orders.view']);
@@ -102,8 +124,17 @@ class OrderController extends Controller
                             . 'data-url="' . e(route('orders.updateStatus', $order)) . '" '
                             . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
                             . 'data-current-status="' . e($order->order_status) . '" '
+                            . 'data-payment-method="' . e($order->payment_method ?: '') . '" '
+                            . 'data-payment-status="' . e($order->payment_status ?: '') . '" '
                             . 'title="' . __('update_status') . '">'
                             . '<i class="fa fa-arrows-rotate"></i></button>'
+                        : '';
+                    $markPaidButton = $canEditStatus && $order->canBeMarkedPaidManually()
+                        ? '<button type="button" class="btn btn-sm btn-success js-mark-order-paid" '
+                            . 'data-url="' . e(route('orders.mark-paid', $order)) . '" '
+                            . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
+                            . 'data-payment-method-label="' . e($this->paymentMethodTitle($order->payment_method)) . '" '
+                            . 'title="' . __('mark_as_paid') . '"><i class="fa fa-money-check-dollar"></i></button>'
                         : '';
                     $deleteButton = $canDelete
                         ? '<form action="' . route('orders.destroy', $order) . '" method="POST" style="display:inline;" class="js-confirm-delete">'
@@ -144,7 +175,7 @@ class OrderController extends Controller
                         ? '<button type="button" class="btn btn-primary btn-sm js-open-driver-assign-modal" '
                             . 'data-order-id="' . e((string) $order->id) . '" '
                             . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
-                            . 'title="Assign Driver"><i class="fa fa-user-check"></i></button>'
+                            . 'title="' . __('assign_driver') . '"><i class="fa fa-user-check"></i></button>'
                         : '';
                     $changeBranchButton = $canEditStatus
                         ? '<button type="button" class="btn btn-secondary btn-sm js-open-branch-change-modal" '
@@ -153,7 +184,7 @@ class OrderController extends Controller
                             . 'title="' . __('change_branch') . '"><i class="fa fa-code-branch"></i></button>'
                         : '';
 
-                    $actions = $statusButton . $editOrder . $invoice . $pdf . $routeButton . $assignDriverButton . $changeBranchButton . $deleteButton;
+                    $actions = $statusButton . $markPaidButton . $editOrder . $invoice . $pdf . $routeButton . $assignDriverButton . $changeBranchButton . $deleteButton;
 
                     return $actions
                         ? '<div class="action d-flex gap-2">' . $actions . '</div>'
@@ -168,6 +199,7 @@ class OrderController extends Controller
                     'payment_summary',
                     'status_selector',
                     'grand_total_display',
+                    'extra_paid_display',
                     'action',
                 ])
                 ->make(true);
@@ -274,11 +306,14 @@ class OrderController extends Controller
                 $order->customer
             );
 
+            $discountAmount = min((float) $order->discount_amount, max((float) ($totals['subtotal'] + $existingAddonTotal), 0));
+
             $order->update([
                 'subtotal' => $totals['subtotal'] + $existingAddonTotal,
                 'shipping_costs' => $totals['shipping_costs'],
                 'vat_amount' => $totals['vat_amount'] + $existingAddonTaxTotal,
-                'grand_total' => $totals['grand_total'] + $existingAddonTotal + $existingAddonTaxTotal,
+                'discount_amount' => $discountAmount,
+                'grand_total' => ($totals['grand_total'] + $existingAddonTotal + $existingAddonTaxTotal) - $discountAmount,
                 'admin_updated' => true,
             ]);
 
@@ -318,15 +353,50 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'order_status' => ['required', Rule::in(array_keys(Order::statusOptions()))],
+            'confirm_payment_received' => ['nullable', 'boolean'],
         ]);
 
-        $order->update([
+        $payload = [
             'order_status' => $validated['order_status'],
-        ]);
+        ];
+
+        if (
+            $validated['order_status'] === Order::STATUS_DELIVERED
+            && $order->requiresOfflinePaymentConfirmationForDelivery()
+            && $request->boolean('confirm_payment_received')
+        ) {
+            $payload['payment_status'] = 'paid';
+            $payload['amount_paid'] = (float) $order->grand_total;
+        }
+
+        $order->update($payload);
 
         return response()->json([
             'message' => __('order_status_updated_successfully'),
             'status_badge' => $this->orderStatusBadge($order->order_status),
+        ]);
+    }
+
+    public function markPaid(Order $order): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user && ! $this->canAccessRoute($user, 'orders.manage', ['orders.manage', 'orders.edit'])) {
+            abort(403);
+        }
+
+        if (! $order->canBeMarkedPaidManually()) {
+            return response()->json([
+                'message' => __('order_is_already_marked_paid'),
+            ], 422);
+        }
+
+        $order->update([
+            'payment_status' => 'paid',
+            'amount_paid' => (float) $order->grand_total,
+        ]);
+
+        return response()->json([
+            'message' => __('order_marked_paid_successfully'),
         ]);
     }
 
@@ -353,7 +423,7 @@ class OrderController extends Controller
         ]);
     }
 
-    public function assignDriver(Request $request, Order $order): JsonResponse
+    public function assignDriver(Request $request, Order $order, DriverAutoDispatchService $driverAutoDispatchService): JsonResponse
     {
         $user = auth()->user();
         if ($user && ! $this->canAccessRoute($user, 'orders.manage', ['orders.manage', 'orders.edit'])) {
@@ -374,9 +444,9 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $order->update([
-            'driver_id' => $driver->id,
-        ]);
+        $driverAutoDispatchService->stopForManualAssignment($order, $driver->id);
+
+        $this->notifyAssignedDriver($order, $driver);
 
         return response()->json([
             'message' => 'Driver assigned successfully.',
@@ -411,7 +481,7 @@ class OrderController extends Controller
         ]);
     }
 
-    public function updateBranch(Request $request, Order $order): JsonResponse
+    public function updateBranch(Request $request, Order $order, DriverAutoDispatchService $driverAutoDispatchService): JsonResponse
     {
         $user = auth()->user();
         if ($user && ! $this->canAccessRoute($user, 'orders.manage', ['orders.manage', 'orders.edit'])) {
@@ -436,10 +506,10 @@ class OrderController extends Controller
         $nextBranchId = (int) $branch->id;
 
         $order->organization_id = $nextBranchId;
-        if ($currentBranchId !== $nextBranchId) {
-            $order->driver_id = null;
-        }
         $order->save();
+        if ($currentBranchId !== $nextBranchId) {
+            $driverAutoDispatchService->resetForBranchChange($order);
+        }
 
         return response()->json([
             'message' => __('order_branch_updated_successfully'),
@@ -555,5 +625,22 @@ class OrderController extends Controller
             ->whereHas('roles', fn ($query) => $query->whereRaw('LOWER(name) = ?', ['driver']))
             ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $order->organization_id))
             ->orderBy('name');
+    }
+
+    private function notifyAssignedDriver(Order $order, User $driver): void
+    {
+        $orderLabel = $order->order_number ?: ('#' . $order->id);
+        $branchName = optional($order->organization)->name ?: ($order->city ?: 'your branch');
+        $customerName = trim($order->first_name . ' ' . $order->last_name);
+
+        AdminNotification::create([
+            'user_id' => $driver->id,
+            'order_id' => $order->id,
+            'type' => 'driver_assignment',
+            'title' => 'New delivery assigned',
+            'message' => 'Order ' . $orderLabel . ' for ' . ($customerName !== '' ? $customerName : 'a customer') . ' has been assigned to you from ' . $branchName . '.',
+            'is_read' => false,
+            'read_at' => null,
+        ]);
     }
 }

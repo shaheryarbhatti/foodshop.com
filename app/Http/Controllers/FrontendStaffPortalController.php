@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminNotification;
 use App\Models\Organization;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -9,6 +10,7 @@ use App\Models\Product;
 use App\Models\Setting;
 use App\Models\Tax;
 use App\Models\User;
+use App\Services\DriverAutoDispatchService;
 use App\Services\OrderPricingService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -91,8 +93,28 @@ class FrontendStaffPortalController extends Controller
                     return $this->orderStatusBadge($order->order_status);
                 })
                 ->addColumn('grand_total_display', function (Order $order) {
-                    return '<div class="fw-semibold text-dark">' . e($this->money($order->payment_currency, $order->grand_total)) . '</div>'
+                    $html = '<div class="fw-semibold text-dark">' . e($this->money($order->payment_currency, $order->grand_total)) . '</div>'
                         . '<div class="small text-muted">' . e(__('subtotal')) . ': ' . e($this->money($order->payment_currency, $order->subtotal)) . '</div>';
+
+                    if ((float) $order->discount_amount > 0) {
+                        $html .= '<div class="small text-success">' . e(__('coupon_discount')) . ': -' . e($this->money($order->payment_currency, $order->discount_amount)) . '</div>';
+                        if (filled($order->coupon_code)) {
+                            $html .= '<div class="small text-muted">' . e(__('coupon_code')) . ': ' . e($order->coupon_code) . '</div>';
+                        }
+                    }
+
+                    return $html;
+                })
+                ->addColumn('extra_paid_display', function (Order $order) {
+                    $extraPaidAmount = (float) ($order->extra_amount_paid ?? 0);
+                    $isPaid = $extraPaidAmount > 0;
+
+                    $html = '<div class="fw-semibold text-dark">' . e($extraPaidAmount > 0 ? $this->money($order->payment_currency, $extraPaidAmount) : $this->money($order->payment_currency, 0)) . '</div>';
+                    $html .= '<div class="small ' . ($isPaid ? 'text-success' : 'text-muted') . '">'
+                        . e($isPaid ? __('paid') : __('not_paid_yet'))
+                        . '</div>';
+
+                    return $html;
                 })
                 ->addColumn('action', function (Order $order) {
                     $user = $this->portalUser();
@@ -102,7 +124,16 @@ class FrontendStaffPortalController extends Controller
                         . 'data-url="' . e(route('frontend.staff.orders.update-status', $order)) . '" '
                         . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
                         . 'data-current-status="' . e($order->order_status) . '" '
+                        . 'data-payment-method="' . e($order->payment_method ?: '') . '" '
+                        . 'data-payment-status="' . e($order->payment_status ?: '') . '" '
                         . 'title="' . __('update_status') . '"><i class="fa fa-arrows-rotate"></i></button>';
+                    $markPaidButton = (!$isDriver && $order->canBeMarkedPaidManually())
+                        ? '<button type="button" class="frontend-action-btn frontend-action-btn--success js-mark-order-paid" '
+                            . 'data-url="' . e(route('frontend.staff.orders.mark-paid', $order)) . '" '
+                            . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
+                            . 'data-payment-method-label="' . e($this->paymentMethodTitle($order->payment_method)) . '" '
+                            . 'title="' . __('mark_as_paid') . '"><i class="fa fa-money-check-dollar"></i></button>'
+                        : '';
 
                     $editOrder = $isDriver
                         ? ''
@@ -140,7 +171,7 @@ class FrontendStaffPortalController extends Controller
                             . 'data-order-id="' . e((string) $order->id) . '" '
                             . 'data-order-number="' . e($order->order_number ?: ('#' . $order->id)) . '" '
                             . 'data-driver-name="' . e(optional($order->driver)->name ?: '') . '" '
-                            . 'title="Assign Driver"><i class="fa fa-user-check"></i></button>';
+                            . 'title="' . __('assign_driver') . '"><i class="fa fa-user-check"></i></button>';
                     $changeBranchButton = $isDriver
                         ? ''
                         : '<button type="button" class="frontend-action-btn frontend-action-btn--dark js-open-branch-change-modal" '
@@ -154,7 +185,7 @@ class FrontendStaffPortalController extends Controller
                             . csrf_field() . method_field('DELETE')
                             . '<button type="submit" class="frontend-action-btn frontend-action-btn--danger" title="' . __('delete') . '"><i class="fa fa-trash"></i></button></form> -->';
 
-                    return '<div class="frontend-action-row">' . $statusButton . $editOrder . $invoice . $pdf . $routeButton . $assignDriverButton . $changeBranchButton . $deleteButton . '</div>';
+                    return '<div class="frontend-action-row">' . $statusButton . $markPaidButton . $editOrder . $invoice . $pdf . $routeButton . $assignDriverButton . $changeBranchButton . $deleteButton . '</div>';
                 })
                 ->rawColumns([
                     'order_reference',
@@ -165,6 +196,7 @@ class FrontendStaffPortalController extends Controller
                     'payment_summary',
                     'status_selector',
                     'grand_total_display',
+                    'extra_paid_display',
                     'action',
                 ])
                 ->make(true);
@@ -177,6 +209,35 @@ class FrontendStaffPortalController extends Controller
             'statusOptions' => Order::statusOptions(),
             'mapProvider' => Setting::get('map_provider', 'leaflet'),
             'googleMapsApiKey' => Setting::get('google_maps_api_key', ''),
+            'portalUnreadNotificationCount' => AdminNotification::query()
+                ->where('user_id', $user->id)
+                ->where('is_read', false)
+                ->count(),
+            'portalLatestNotificationId' => (int) (AdminNotification::query()
+                ->where('user_id', $user->id)
+                ->latest('id')
+                ->value('id') ?? 0),
+        ]);
+    }
+
+    public function notificationSummary(): JsonResponse
+    {
+        $user = $this->portalUser();
+        $latestNotification = AdminNotification::query()
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'unread_count' => AdminNotification::query()
+                ->where('user_id', $user->id)
+                ->where('is_read', false)
+                ->count(),
+            'latest_id' => (int) ($latestNotification?->id ?? 0),
+            'latest_title' => $latestNotification?->title,
+            'latest_message' => $latestNotification?->message,
+            'latest_type' => $latestNotification?->type,
+            'latest_order_id' => $latestNotification?->order_id,
         ]);
     }
 
@@ -253,7 +314,7 @@ class FrontendStaffPortalController extends Controller
         ]);
     }
 
-    public function assignDriver(Request $request, Order $order): JsonResponse
+    public function assignDriver(Request $request, Order $order, DriverAutoDispatchService $driverAutoDispatchService): JsonResponse
     {
         $user = $this->portalUser();
         $this->authorizeOrderAccess($order, $user);
@@ -276,9 +337,9 @@ class FrontendStaffPortalController extends Controller
             ], 422);
         }
 
-        $order->update([
-            'driver_id' => $driver->id,
-        ]);
+        $driverAutoDispatchService->stopForManualAssignment($order, $driver->id);
+
+        $this->notifyAssignedDriver($order, $driver);
 
         return response()->json([
             'message' => 'Driver assigned successfully.',
@@ -312,7 +373,7 @@ class FrontendStaffPortalController extends Controller
         ]);
     }
 
-    public function updateBranch(Request $request, Order $order): JsonResponse
+    public function updateBranch(Request $request, Order $order, DriverAutoDispatchService $driverAutoDispatchService): JsonResponse
     {
         $user = $this->portalUser();
         $this->authorizeOrderAccess($order, $user);
@@ -336,10 +397,10 @@ class FrontendStaffPortalController extends Controller
         $nextBranchId = (int) $branch->id;
 
         $order->organization_id = $nextBranchId;
-        if ($currentBranchId !== $nextBranchId) {
-            $order->driver_id = null;
-        }
         $order->save();
+        if ($currentBranchId !== $nextBranchId) {
+            $driverAutoDispatchService->resetForBranchChange($order);
+        }
 
         return response()->json([
             'message' => __('order_branch_updated_successfully'),
@@ -436,11 +497,14 @@ class FrontendStaffPortalController extends Controller
                 $order->customer
             );
 
+            $discountAmount = min((float) $order->discount_amount, max((float) ($totals['subtotal'] + $existingAddonTotal), 0));
+
             $order->update([
                 'subtotal' => $totals['subtotal'] + $existingAddonTotal,
                 'shipping_costs' => $totals['shipping_costs'],
                 'vat_amount' => $totals['vat_amount'] + $existingAddonTaxTotal,
-                'grand_total' => $totals['grand_total'] + $existingAddonTotal + $existingAddonTaxTotal,
+                'discount_amount' => $discountAmount,
+                'grand_total' => ($totals['grand_total'] + $existingAddonTotal + $existingAddonTaxTotal) - $discountAmount,
                 'admin_updated' => true,
             ]);
 
@@ -475,15 +539,89 @@ class FrontendStaffPortalController extends Controller
 
         $validated = $request->validate([
             'order_status' => ['required', Rule::in(array_keys(Order::statusOptions()))],
+            'confirm_payment_received' => ['nullable', 'boolean'],
         ]);
 
-        $order->update([
+        $payload = [
             'order_status' => $validated['order_status'],
-        ]);
+        ];
+
+        if (
+            $validated['order_status'] === Order::STATUS_DELIVERED
+            && $order->requiresOfflinePaymentConfirmationForDelivery()
+            && $request->boolean('confirm_payment_received')
+        ) {
+            $payload['payment_status'] = 'paid';
+            $payload['amount_paid'] = (float) $order->grand_total;
+        }
+
+        $order->update($payload);
 
         return response()->json([
             'message' => __('order_status_updated_successfully'),
             'status_badge' => $this->orderStatusBadge($order->order_status),
+        ]);
+    }
+
+    public function markPaid(Order $order): JsonResponse
+    {
+        $user = $this->portalUser();
+        $this->authorizeOrderAccess($order, $user);
+        $this->ensureNotDriver($user);
+
+        if (! $order->canBeMarkedPaidManually()) {
+            return response()->json([
+                'message' => __('order_is_already_marked_paid'),
+            ], 422);
+        }
+
+        $order->update([
+            'payment_status' => 'paid',
+            'amount_paid' => (float) $order->grand_total,
+        ]);
+
+        return response()->json([
+            'message' => __('order_marked_paid_successfully'),
+        ]);
+    }
+
+    public function acceptDriverOffer(Order $order, DriverAutoDispatchService $driverAutoDispatchService): JsonResponse
+    {
+        $user = $this->portalUser();
+        if (! $user->hasRole('Driver')) {
+            abort(403);
+        }
+
+        if (! $driverAutoDispatchService->driverCanRespond($order->fresh(), $user)) {
+            return response()->json([
+                'message' => __('driver_offer_not_available'),
+            ], 422);
+        }
+
+        $driverAutoDispatchService->accept($order->fresh(), $user);
+
+        return response()->json([
+            'message' => __('driver_offer_accepted'),
+        ]);
+    }
+
+    public function rejectDriverOffer(Order $order, DriverAutoDispatchService $driverAutoDispatchService): JsonResponse
+    {
+        $user = $this->portalUser();
+        if (! $user->hasRole('Driver')) {
+            abort(403);
+        }
+
+        if (! $driverAutoDispatchService->driverCanRespond($order->fresh(), $user)) {
+            return response()->json([
+                'message' => __('driver_offer_not_available'),
+            ], 422);
+        }
+
+        $driverAutoDispatchService->reject($order->fresh(), $user);
+
+        return response()->json([
+            'message' => __('driver_offer_rejected'),
         ]);
     }
 
@@ -650,5 +788,22 @@ class FrontendStaffPortalController extends Controller
         if ($user->hasRole('Driver')) {
             abort(403);
         }
+    }
+
+    private function notifyAssignedDriver(Order $order, User $driver): void
+    {
+        $orderLabel = $order->order_number ?: ('#' . $order->id);
+        $branchName = optional($order->organization)->name ?: ($order->city ?: 'your branch');
+        $customerName = trim($order->first_name . ' ' . $order->last_name);
+
+        AdminNotification::create([
+            'user_id' => $driver->id,
+            'order_id' => $order->id,
+            'type' => 'driver_assignment',
+            'title' => 'New delivery assigned',
+            'message' => 'Order ' . $orderLabel . ' for ' . ($customerName !== '' ? $customerName : 'a customer') . ' has been assigned to you from ' . $branchName . '.',
+            'is_read' => false,
+            'read_at' => null,
+        ]);
     }
 }

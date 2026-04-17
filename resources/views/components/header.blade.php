@@ -1,6 +1,6 @@
 <!-- Google font -->
 @php
-    $faviconPath = \App\Models\Setting::get('favicon', 'assets/images/favicon.png');
+$faviconPath = \App\Models\Setting::get('favicon', 'assets/images/favicon.png');
 @endphp
 <link rel="icon" href="{{ asset('public/' . $faviconPath) }}" type="image/x-icon">
 <link rel="shortcut icon" href="{{ asset('public/' . $faviconPath) }}" type="image/x-icon">
@@ -44,150 +44,322 @@
 <link href="{{ asset('public/assets/fontawesome/css/sharp-duotone-thin.css')}}" rel="stylesheet" />
 
 @php
-    $themePrimary = \App\Models\Setting::get('theme_primary', '#7367f0');
-    $themeSecondary = \App\Models\Setting::get('theme_secondary', '#00cfe8');
-    $themeAccent = \App\Models\Setting::get('theme_accent', '#0f9b8e');
-    $metaKeywords = \App\Models\Setting::get('meta_keywords', 'tickets, support, dashboard, reporting, operations');
-    $metaDescription = \App\Models\Setting::get('meta_description', 'Ticket management system for activity tracking, team coordination, and reporting.');
-    $metaAuthor = \App\Models\Setting::get('meta_author', 'Ticket Operations');
-    $currentTimezone = \App\Models\Setting::get('timezone', config('app.timezone', 'UTC'));
-    $headerBgColor = \App\Models\Setting::get('header_bg_color', '#ffffff');
-    $headerBgStart = \App\Models\Setting::get('header_bg_start', '');
-    $headerBgEnd = \App\Models\Setting::get('header_bg_end', '');
-    $headerBackground = ($headerBgStart && $headerBgEnd)
-        ? 'linear-gradient(90deg, ' . $headerBgStart . ' 0%, ' . $headerBgEnd . ' 100%)'
-        : $headerBgColor;
-    $headerBackgroundStyle = "background: {$headerBackground};";
+$themePrimary = \App\Models\Setting::get('theme_primary', '#7367f0');
+$themeSecondary = \App\Models\Setting::get('theme_secondary', '#00cfe8');
+$themeAccent = \App\Models\Setting::get('theme_accent', '#0f9b8e');
+$metaKeywords = \App\Models\Setting::get('meta_keywords', 'tickets, support, dashboard, reporting, operations');
+$metaDescription = \App\Models\Setting::get('meta_description', 'Ticket management system for activity tracking, team
+coordination, and reporting.');
+$metaAuthor = \App\Models\Setting::get('meta_author', 'Ticket Operations');
+$currentTimezone = \App\Models\Setting::get('timezone', config('app.timezone', 'UTC'));
+$headerBgColor = \App\Models\Setting::get('header_bg_color', '#ffffff');
+$headerBgStart = \App\Models\Setting::get('header_bg_start', '');
+$headerBgEnd = \App\Models\Setting::get('header_bg_end', '');
+$headerBackground = ($headerBgStart && $headerBgEnd)
+? 'linear-gradient(90deg, ' . $headerBgStart . ' 0%, ' . $headerBgEnd . ' 100%)'
+: $headerBgColor;
+$headerBackgroundStyle = "background: {$headerBackground};";
 @endphp
 <meta name="keywords" content="{{ $metaKeywords }}">
 <meta name="description" content="{{ $metaDescription }}">
 <meta name="author" content="{{ $metaAuthor }}">
 <style>
-    :root {
-        --theme-default: {{ $themePrimary }};
-        --theme-secondary: {{ $themeSecondary }};
-        --theme-accent: {{ $themeAccent }};
+:root {
+    --theme-default: {{ $themePrimary }};
+    --theme-secondary: {{ $themeSecondary }};
+    --theme-accent: {{ $themeAccent }};
+}
+
+.btn-primary,
+.btn-primary:focus {
+    background-color: var(--theme-default) !important;
+    border-color: var(--theme-default) !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--theme-secondary) !important;
+    border-color: var(--theme-secondary) !important;
+}
+
+.btn-outline-primary {
+    color: var(--theme-default) !important;
+    border-color: var(--theme-default) !important;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--theme-default) !important;
+    border-color: var(--theme-default) !important;
+    color: #ffffff !important;
+}
+
+.bg-primary {
+    background-color: var(--theme-default) !important;
+}
+
+.text-primary {
+    color: var(--theme-default) !important;
+}
+
+.border-primary {
+    border-color: var(--theme-default) !important;
+}
+
+.badge.bg-primary,
+.badge.bg-primary.text-white {
+    background-color: var(--theme-default) !important;
+}
+
+.page-item.active .page-link {
+    background-color: var(--theme-default) !important;
+    border-color: var(--theme-default) !important;
+}
+
+.page-link:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.12);
+}
+
+.form-check-input:checked {
+    background-color: var(--theme-default) !important;
+    border-color: var(--theme-default) !important;
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .show>.nav-link {
+    background-color: var(--theme-default) !important;
+}
+
+.progress-bar {
+    background-color: var(--theme-default) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+    background: var(--theme-default) !important;
+    border-color: var(--theme-default) !important;
+    color: #ffffff !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: var(--theme-secondary) !important;
+    border-color: var(--theme-secondary) !important;
+    color: #ffffff !important;
+}
+
+.logo-overlay-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.logo-overlay-wrap .logo-img {
+    display: block;
+}
+
+.logo-overlay-mask {
+    position: absolute;
+    inset: 0;
+    background: var(--logo-color, transparent);
+    -webkit-mask-image: var(--logo-url);
+    mask-image: var(--logo-url);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+    display: none;
+}
+
+.logo-overlay-wrap.has-overlay .logo-img {
+    opacity: 0;
+}
+
+.logo-overlay-wrap.has-overlay .logo-overlay-mask {
+    display: block;
+}
+
+.doc-blink {
+    animation: docPulse 1.8s ease-in-out infinite;
+    box-shadow: 0 0 0 rgba(79, 70, 229, 0.5);
+    border-radius: 999px;
+    font-weight: 700;
+    color: #ffffff !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    white-space: nowrap;
+    gap: 8px;
+}
+
+.btn-outline-primary {
+    white-space: nowrap;
+}
+
+.page-header .header-wrapper .nav-right {
+    flex: 1 1 auto;
+    max-width: none;
+}
+
+.page-header .header-wrapper .nav-menus {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: nowrap;
+}
+
+.page-header .header-wrapper .nav-menus > li {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+@keyframes docPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.35);
     }
 
-    .btn-primary,
-    .btn-primary:focus {
-        background-color: var(--theme-default) !important;
-        border-color: var(--theme-default) !important;
+    70% {
+        box-shadow: 0 0 0 14px rgba(79, 70, 229, 0);
     }
 
-    .btn-primary:hover {
-        background-color: var(--theme-secondary) !important;
-        border-color: var(--theme-secondary) !important;
+    100% {
+        box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
     }
+}
 
-    .btn-outline-primary {
-        color: var(--theme-default) !important;
-        border-color: var(--theme-default) !important;
-    }
+.admin-notification-bell {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
 
-    .btn-outline-primary:hover {
-        background-color: var(--theme-default) !important;
-        border-color: var(--theme-default) !important;
-        color: #ffffff !important;
-    }
+.admin-notification-bell svg {
+    width: 20px;
+    height: 20px;
+}
 
-    .bg-primary {
-        background-color: var(--theme-default) !important;
-    }
+.admin-notification-bell i {
+    font-size: 18px;
+    color: #0f172a;
+}
 
-    .text-primary {
-        color: var(--theme-default) !important;
-    }
+.admin-notification-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.25);
+}
 
-    .border-primary {
-        border-color: var(--theme-default) !important;
-    }
+.admin-notification-panel {
+    width: 360px;
+    max-width: calc(100vw - 40px);
+    padding: 0;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+    background: #ffffff;
+}
 
-    .badge.bg-primary,
-    .badge.bg-primary.text-white {
-        background-color: var(--theme-default) !important;
-    }
+.admin-notification-panel .dropdown-title {
+    padding: 20px 22px 10px;
+}
 
-    .page-item.active .page-link {
-        background-color: var(--theme-default) !important;
-        border-color: var(--theme-default) !important;
-    }
+.admin-notification-list {
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 10px 12px 16px;
+}
 
-    .page-link:focus {
-        box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.12);
-    }
+.admin-notification-item {
+    display: block;
+    margin: 0 0 10px;
+    padding: 16px;
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid transparent;
+    transition: 0.2s ease;
+}
 
-    .form-check-input:checked {
-        background-color: var(--theme-default) !important;
-        border-color: var(--theme-default) !important;
-    }
+.admin-notification-item:hover {
+    background: #ffffff;
+    border-color: rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
 
-    .nav-pills .nav-link.active,
-    .nav-pills .show > .nav-link {
-        background-color: var(--theme-default) !important;
-    }
+.admin-notification-item.is-unread {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.18);
+}
 
-    .progress-bar {
-        background-color: var(--theme-default) !important;
-    }
+.admin-notification-item__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
 
-    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
-    .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
-        background: var(--theme-default) !important;
-        border-color: var(--theme-default) !important;
-        color: #ffffff !important;
-    }
+.admin-notification-item__icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--theme-default), var(--theme-secondary));
+    color: #ffffff;
+    font-size: 16px;
+}
 
-    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-        background: var(--theme-secondary) !important;
-        border-color: var(--theme-secondary) !important;
-        color: #ffffff !important;
-    }
+.admin-notification-item__content {
+    min-width: 0;
+}
 
-    .logo-overlay-wrap {
-        position: relative;
-        display: inline-block;
-    }
+.admin-notification-item__title {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 800;
+    color: #0f172a;
+}
 
-    .logo-overlay-wrap .logo-img {
-        display: block;
-    }
+.admin-notification-item__message {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #475569;
+}
 
-    .logo-overlay-mask {
-        position: absolute;
-        inset: 0;
-        background: var(--logo-color, transparent);
-        -webkit-mask-image: var(--logo-url);
-        mask-image: var(--logo-url);
-        -webkit-mask-repeat: no-repeat;
-        mask-repeat: no-repeat;
-        -webkit-mask-size: contain;
-        mask-size: contain;
-        -webkit-mask-position: center;
-        mask-position: center;
-        display: none;
-    }
+.admin-notification-item__meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #64748b;
+}
 
-    .logo-overlay-wrap.has-overlay .logo-img {
-        opacity: 0;
-    }
-
-    .logo-overlay-wrap.has-overlay .logo-overlay-mask {
-        display: block;
-    }
-
-    .doc-blink {
-        animation: docPulse 1.8s ease-in-out infinite;
-        box-shadow: 0 0 0 rgba(79, 70, 229, 0.5);
-        border-radius: 999px;
-        font-weight: 700;
-    }
-
-    @keyframes docPulse {
-        0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.35); }
-        70% { box-shadow: 0 0 0 14px rgba(79, 70, 229, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
-    }
+.admin-notification-empty {
+    padding: 18px;
+    margin: 0 0 10px;
+    border-radius: 18px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 13px;
+}
 </style>
 
 </head>
@@ -218,7 +390,7 @@
                         <i class="fa fa-bars" style="color: #000000; font-size: 24px; cursor: pointer;"></i>
                     </div>
                 </div>
-                <form class="col-sm-4 form-inline search-full d-none d-xl-block" action="#" method="get">
+                <form class="col-xl-1 col-lg-1 form-inline search-full d-none d-xl-block" action="#" method="get">
                     <div class="form-group">
                         <div class="Typeahead Typeahead--twitterUsers">
                             <div class="u-posRelative">
@@ -230,15 +402,23 @@
                         </div>
                     </div>
                 </form>
-                <div class="nav-right col-xl-8 col-lg-12 col-auto pull-right right-header p-0">
+                <div class="nav-right col-xl col-lg-12 col-auto pull-right right-header p-0">
                     @php
-                        $docUser = auth()->user();
-                        $canDocumentation = (bool) $docUser;
+                    $docUser = auth()->user();
+                    $canDocumentation = (bool) $docUser;
+                    $adminNotifications = $docUser
+                        ? $docUser->adminNotifications()->with('order:id,order_number')->limit(8)->get()
+                        : collect();
+                    $adminUnreadNotificationCount = $docUser
+                        ? $docUser->adminNotifications()->where('is_read', false)->count()
+                        : 0;
+                    $latestAdminNotificationId = (int) ($adminNotifications->first()->id ?? 0);
                     @endphp
                     <ul class="nav-menus">
                         @if ($canDocumentation)
                         <li class="d-none d-lg-inline-block me-3">
-                            <span class="badge rounded-pill bg-light text-dark border px-3 py-2 d-inline-flex align-items-center justify-content-center">
+                            <span
+                                class="badge rounded-pill bg-light text-dark border px-3 py-2 d-inline-flex align-items-center justify-content-center">
                                 <i class="fa fa-clock me-2 text-primary"></i>Time Zone: {{ $currentTimezone }}
                             </span>
                         </li>
@@ -248,9 +428,45 @@
                             </a>
                         </li>
                         <li class="d-none d-md-inline-block me-3">
-                            <a href="{{ route('frontend.home') }}" class="btn btn-outline-primary px-3" target="_blank" rel="noopener noreferrer">
+                            <a href="{{ route('frontend.home') }}" class="btn btn-outline-primary px-3" target="_blank"
+                                rel="noopener noreferrer">
                                 <i class="fa fa-globe me-2"></i>{{ __('visit_website') }}
                             </a>
+                        </li>
+                        <li class="onhover-dropdown">
+                            <div class="notification-box admin-notification-bell"
+                                id="adminNotificationBell"
+                                data-endpoint="{{ route('admin.notifications.index') }}"
+                                data-latest-id="{{ $latestAdminNotificationId }}">
+                                <i class="fa fa-bell"></i>
+                                <span
+                                    class="admin-notification-badge {{ $adminUnreadNotificationCount > 0 ? '' : 'd-none' }}"
+                                    id="adminNotificationBadge">{{ $adminUnreadNotificationCount }}</span>
+                            </div>
+                            <div class="onhover-show-div notification-dropdown admin-notification-panel">
+                                <h6 class="f-18 mb-0 dropdown-title">Notifications</h6>
+                                <div class="admin-notification-list" id="adminNotificationList">
+                                    @forelse ($adminNotifications as $notification)
+                                    <a href="{{ route('admin.notifications.open', $notification) }}"
+                                        class="admin-notification-item {{ $notification->is_read ? '' : 'is-unread' }}">
+                                        <div class="admin-notification-item__head">
+                                            <span class="admin-notification-item__icon">
+                                                <i class="fa fa-bag-shopping"></i>
+                                            </span>
+                                            <div class="admin-notification-item__content">
+                                                <h4 class="admin-notification-item__title">{{ $notification->title }}</h4>
+                                                <p class="admin-notification-item__message">{{ $notification->message }}</p>
+                                                <div class="admin-notification-item__meta">
+                                                    {{ optional($notification->created_at)->diffForHumans() }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                    @empty
+                                    <div class="admin-notification-empty">No notifications yet.</div>
+                                    @endforelse
+                                </div>
+                            </div>
                         </li>
                         @endif
                         <li class="language-nav">
@@ -330,6 +546,140 @@
             </div>
             </div>
           </script>
+                <script>
+                    (function() {
+                        const bell = document.getElementById('adminNotificationBell');
+                        const list = document.getElementById('adminNotificationList');
+                        const badge = document.getElementById('adminNotificationBadge');
+
+                        if (!bell || !list || !badge) {
+                            return;
+                        }
+
+                        const endpoint = bell.dataset.endpoint;
+                        let latestId = Number(bell.dataset.latestId || 0);
+                        let audioContext = null;
+                        let audioUnlocked = false;
+
+                        const escapeHtml = (value) => String(value ?? '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#039;');
+
+                        const ensureAudio = () => {
+                            if (audioContext || !window.AudioContext) {
+                                return;
+                            }
+
+                            audioContext = new window.AudioContext();
+                        };
+
+                        const unlockAudio = async () => {
+                            ensureAudio();
+
+                            if (!audioContext) {
+                                return;
+                            }
+
+                            try {
+                                if (audioContext.state === 'suspended') {
+                                    await audioContext.resume();
+                                }
+
+                                audioUnlocked = true;
+                            } catch (error) {
+                                audioUnlocked = false;
+                            }
+                        };
+
+                        const playBeep = async () => {
+                            await unlockAudio();
+
+                            if (!audioContext || !audioUnlocked) {
+                                return;
+                            }
+
+                            const oscillator = audioContext.createOscillator();
+                            const gainNode = audioContext.createGain();
+                            oscillator.type = 'sine';
+                            oscillator.frequency.setValueAtTime(1046.5, audioContext.currentTime);
+                            gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.12, audioContext.currentTime + 0.02);
+                            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
+                            oscillator.connect(gainNode);
+                            gainNode.connect(audioContext.destination);
+                            oscillator.start();
+                            oscillator.stop(audioContext.currentTime + 0.30);
+                        };
+
+                        const renderNotifications = (notifications) => {
+                            if (!Array.isArray(notifications) || notifications.length === 0) {
+                                list.innerHTML = '<div class="admin-notification-empty">No notifications yet.</div>';
+                                return;
+                            }
+
+                            list.innerHTML = notifications.map((notification) => `
+                                <a href="${escapeHtml(notification.open_url)}" class="admin-notification-item ${notification.is_read ? '' : 'is-unread'}">
+                                    <div class="admin-notification-item__head">
+                                        <span class="admin-notification-item__icon">
+                                            <i class="fa fa-bag-shopping"></i>
+                                        </span>
+                                        <div class="admin-notification-item__content">
+                                            <h4 class="admin-notification-item__title">${escapeHtml(notification.title)}</h4>
+                                            <p class="admin-notification-item__message">${escapeHtml(notification.message)}</p>
+                                            <div class="admin-notification-item__meta">${escapeHtml(notification.created_at)}</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            `).join('');
+                        };
+
+                        const renderBadge = (count) => {
+                            const unreadCount = Number(count || 0);
+                            badge.textContent = unreadCount;
+                            badge.classList.toggle('d-none', unreadCount < 1);
+                        };
+
+                        const pollNotifications = async () => {
+                            try {
+                                const response = await fetch(endpoint, {
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'Accept': 'application/json',
+                                    },
+                                    credentials: 'same-origin',
+                                });
+
+                                if (!response.ok) {
+                                    return;
+                                }
+
+                                const payload = await response.json();
+                                renderNotifications(payload.notifications || []);
+                                renderBadge(payload.unread_count || 0);
+
+                                const incomingLatestId = Number(payload.latest_id || 0);
+                                if (incomingLatestId > latestId) {
+                                    latestId = incomingLatestId;
+                                    bell.dataset.latestId = String(incomingLatestId);
+                                    playBeep();
+                                }
+                            } catch (error) {
+                            }
+                        };
+
+                        ['pointerdown', 'keydown'].forEach((eventName) => {
+                            window.addEventListener(eventName, unlockAudio, {
+                                once: true,
+                                passive: true,
+                            });
+                        });
+
+                        window.setInterval(pollNotifications, 15000);
+                    })();
+                </script>
                 <script class="empty-template" type="text/x-handlebars-template">
                     <div class="EmptyMessage">Your search turned up 0 results. This most likely means the backend is down, yikes!</div>
                     </script>

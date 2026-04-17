@@ -136,6 +136,9 @@
                         <div class="customer-order-total-row"><span>Subtotal</span><strong>{{ $money($order->subtotal) }}</strong></div>
                         <div class="customer-order-total-row"><span>Shipping</span><strong>{{ $money($order->shipping_costs) }}</strong></div>
                         <div class="customer-order-total-row"><span>VAT</span><strong>{{ $money($order->vat_amount) }}</strong></div>
+                        @if((float) $order->discount_amount > 0)
+                            <div class="customer-order-total-row"><span>{{ __('coupon_discount') }}{{ $order->coupon_code ? ' (' . $order->coupon_code . ')' : '' }}</span><strong>-{{ $money($order->discount_amount) }}</strong></div>
+                        @endif
                         <div class="customer-order-total-row is-grand"><span>Grand Total</span><strong>{{ $money($order->grand_total) }}</strong></div>
                     </div>
                 </div>

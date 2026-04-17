@@ -27,7 +27,7 @@
             <p class="success-copy">
                 {{ __('frontend_order_success_message') }}
                 <br>
-                <span class="order-ref">{{ __('frontend_order_reference') }}: #{{ session('order_id') ?? rand(1000, 9999) }}</span>
+                <span class="order-ref">{{ __('frontend_order_reference') }}: #{{ $successOrderId ?? session('order_id') ?? rand(1000, 9999) }}</span>
             </p>
             <div class="success-actions">
                 @if($hasFrontendCustomer)

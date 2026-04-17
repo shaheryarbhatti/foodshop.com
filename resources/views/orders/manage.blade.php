@@ -67,6 +67,7 @@
                                         <th>{{ __('payment') }}</th>
                                         <th>{{ __('status') }}</th>
                                         <th>{{ __('grand_total') }}</th>
+                                        <th>{{ __('extra_paid_amount') }}</th>
                                         <th>{{ __('action') }}</th>
                                     </tr>
                                 </thead>
@@ -193,6 +194,11 @@
                                 <option value="{{ $value }}">{{ $label }}</option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="alert alert-warning small mb-3 d-none" id="orderStatusPaymentNotice">{{ __('offline_payment_delivery_notice') }}</div>
+                    <div class="form-check mb-3 d-none" id="orderStatusPaymentConfirmWrap">
+                        <input class="form-check-input" type="checkbox" id="orderStatusPaymentConfirm">
+                        <label class="form-check-label fw-semibold" for="orderStatusPaymentConfirm">{{ __('confirm_payment_received_checkbox') }}</label>
                     </div>
                     <div class="text-end">
                         <button type="submit" class="btn btn-primary" id="orderStatusSaveButton">{{ __('save_settings') }}</button>
@@ -362,6 +368,7 @@ window.initOrdersManagePage = function () {
             { data: 'payment_summary', name: 'payment_method', orderable: false, searchable: false },
             { data: 'status_selector', name: 'order_status', orderable: false, searchable: false },
             { data: 'grand_total_display', name: 'grand_total', searchable: false },
+            { data: 'extra_paid_display', name: 'extra_amount_paid', searchable: false, orderable: false },
             { data: 'action', name: 'action', orderable: false, searchable: false }
         ],
         pageLength: 10,
@@ -380,11 +387,11 @@ window.initOrdersManagePage = function () {
         table.ajax.reload();
     });
 
-    const updateOrderStatus = function (updateUrl, nextValue, onSuccess, onError) {
+    const updateOrderStatus = function (updateUrl, nextValue, extraData, onSuccess, onError) {
         $.ajax({
             url: updateUrl,
             type: 'PATCH',
-            data: { _token: @json(csrf_token()), order_status: nextValue },
+            data: Object.assign({ _token: @json(csrf_token()), order_status: nextValue }, extraData || {}),
             success: onSuccess,
             error: onError
         });
@@ -407,6 +414,9 @@ window.initOrdersManagePage = function () {
     const orderStatusSelect = document.getElementById('orderStatusSelect');
     const orderStatusUpdateUrl = document.getElementById('orderStatusUpdateUrl');
     const orderStatusSaveButton = document.getElementById('orderStatusSaveButton');
+    const orderStatusPaymentNotice = document.getElementById('orderStatusPaymentNotice');
+    const orderStatusPaymentConfirmWrap = document.getElementById('orderStatusPaymentConfirmWrap');
+    const orderStatusPaymentConfirm = document.getElementById('orderStatusPaymentConfirm');
     const assignDriverModalTitle = document.getElementById('assignDriverModalTitle');
     const assignDriverForm = document.getElementById('assignDriverForm');
     const assignDriverOrderId = document.getElementById('assignDriverOrderId');
@@ -428,6 +438,21 @@ window.initOrdersManagePage = function () {
     let googleCustomerMarker;
     let googleFallbackPolyline;
     let routeRequestToken = 0;
+    let orderStatusPaymentMethod = '';
+    let orderStatusPaymentStatus = '';
+
+    const syncOrderStatusPaymentConfirmation = function () {
+        const requiresConfirmation = ['cash_on_delivery', 'bank_account'].includes(orderStatusPaymentMethod)
+            && !['paid', 'success'].includes(orderStatusPaymentStatus)
+            && orderStatusSelect?.value === @json(\App\Models\Order::STATUS_DELIVERED);
+
+        orderStatusPaymentNotice?.classList.toggle('d-none', !requiresConfirmation);
+        orderStatusPaymentConfirmWrap?.classList.toggle('d-none', !requiresConfirmation);
+
+        if (orderStatusPaymentConfirm) {
+            orderStatusPaymentConfirm.checked = false;
+        }
+    };
 
     const initBranchSelect = function () {
         if (!(window.jQuery && jQuery.fn.select2 && changeBranchSelect)) { return; }
@@ -693,8 +718,13 @@ window.initOrdersManagePage = function () {
         orderStatusModalTitle.textContent = `${@json(__('status'))} - ${button.dataset.orderNumber || '#'}`;
         orderStatusUpdateUrl.value = button.dataset.url || '';
         orderStatusSelect.value = button.dataset.currentStatus || '';
+        orderStatusPaymentMethod = button.dataset.paymentMethod || '';
+        orderStatusPaymentStatus = button.dataset.paymentStatus || '';
+        syncOrderStatusPaymentConfirmation();
         statusModal.show();
     });
+
+    orderStatusSelect?.addEventListener('change', syncOrderStatusPaymentConfirmation);
 
     $(document).on('click', '.js-open-driver-assign-modal', function () {
         const button = this;
@@ -784,12 +814,13 @@ window.initOrdersManagePage = function () {
         if (!updateUrl || !nextValue) {
             return;
         }
-
         const defaultText = orderStatusSaveButton.textContent;
         orderStatusSaveButton.disabled = true;
         orderStatusSaveButton.textContent = @json(__('loading'));
 
-        updateOrderStatus(updateUrl, nextValue, function () {
+        updateOrderStatus(updateUrl, nextValue, {
+            confirm_payment_received: orderStatusPaymentConfirm?.checked ? 1 : 0
+        }, function () {
             orderStatusSaveButton.disabled = false;
             orderStatusSaveButton.textContent = defaultText;
             statusModal.hide();
@@ -810,6 +841,49 @@ window.initOrdersManagePage = function () {
                 title: @json(__('error')),
                 text: xhr.responseJSON?.message || @json(__('order_status_update_failed')),
                 confirmButtonText: @json(__('ok'))
+            });
+        });
+    });
+
+    $(document).on('click', '.js-mark-order-paid', function () {
+        const button = this;
+        const updateUrl = button.dataset.url || '';
+        const orderNumber = button.dataset.orderNumber || '#';
+        const paymentMethodLabel = button.dataset.paymentMethodLabel || @json(__('payment_method'));
+        if (!updateUrl) { return; }
+
+        Swal.fire({
+            icon: 'question',
+            title: @json(__('mark_as_paid')),
+            text: `${@json(__('mark_order_paid_confirmation'))} (${orderNumber} - ${paymentMethodLabel})`,
+            showCancelButton: true,
+            confirmButtonText: @json(__('yes_mark_paid')),
+            cancelButtonText: @json(__('cancel'))
+        }).then((result) => {
+            if (!result.isConfirmed) { return; }
+
+            $.ajax({
+                url: updateUrl,
+                type: 'PATCH',
+                data: { _token: @json(csrf_token()) },
+                success: function (response) {
+                    table.ajax.reload(null, false);
+                    Swal.fire({
+                        icon: 'success',
+                        title: @json(__('success')),
+                        text: response.message || @json(__('order_marked_paid_successfully')),
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                },
+                error: function (xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: @json(__('error')),
+                        text: xhr.responseJSON?.message || @json(__('unable_to_mark_order_paid')),
+                        confirmButtonText: @json(__('ok'))
+                    });
+                }
             });
         });
     });

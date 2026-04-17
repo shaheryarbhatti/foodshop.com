@@ -41,6 +41,7 @@
 .order-overview-table tr.total-row { background: #222; color: #fff; }
 .order-overview-table tr.total-row td { border-color: #333; font-weight: 800; }
 .order-overview-table .vat-includes { font-size: 0.7rem; color: #aaa; display: block; margin-top: 4px; font-weight: normal; }
+.checkout-coupon-box{margin:18px 0 0;padding:18px;border-radius:18px;background:#fff7e8;border:1px solid rgba(234,179,8,.24)}.checkout-coupon-label{display:block;margin-bottom:10px;font-size:.86rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8a4d00}.checkout-coupon-row{display:flex;gap:10px}.checkout-coupon-input{flex:1;border:1px solid rgba(15,23,42,.12);border-radius:14px;padding:12px 14px;font-weight:700}.checkout-coupon-apply,.checkout-coupon-remove{border:0;border-radius:14px;padding:0 18px;font-weight:900;min-height:50px}.checkout-coupon-apply{background:#111827;color:#fff}.checkout-coupon-remove{background:#fff;color:#b42318;border:1px solid rgba(180,35,24,.16)}.checkout-coupon-meta{margin-top:12px;font-size:.92rem;line-height:1.6;display:none}.checkout-coupon-meta.is-visible{display:block}.checkout-coupon-meta.is-success{color:#15803d}.checkout-coupon-meta.is-error{color:#b42318}
 
 .payment-methods { margin-bottom: 18px; display: flex; flex-direction: column; gap: 12px; }
 .payment-method-option {
@@ -202,6 +203,7 @@
             <input type="hidden" name="cart_data" id="cartDataField" value="">
             <input type="hidden" name="shipping_costs_calculated" id="shippingCostsField" value="0">
             <input type="hidden" name="vat_amount_calculated" id="vatAmountField" value="0">
+            <input type="hidden" name="coupon_code" id="couponCodeField" value="">
             <input type="hidden" name="gateway_payment_intent_id" id="gatewayPaymentIntentField" value="">
 
             <div class="checkout-shell">
@@ -277,6 +279,16 @@
                         <textarea class="form-control" name="order_notes" rows="3" placeholder="{{ __('frontend_order_notes_placeholder') }}">{{ old('order_notes') }}</textarea>
                     </div>
 
+                    <div class="checkout-coupon-box">
+                        <label for="checkoutCouponCode" class="checkout-coupon-label">{{ __('coupon_code') }}</label>
+                        <div class="checkout-coupon-row">
+                            <input type="text" id="checkoutCouponCode" class="checkout-coupon-input" placeholder="{{ __('frontend_enter_coupon_code') }}">
+                            <button type="button" class="checkout-coupon-apply" id="checkoutApplyCoupon">{{ __('apply_coupon') }}</button>
+                            <button type="button" class="checkout-coupon-remove d-none" id="checkoutRemoveCoupon">{{ __('remove_coupon') }}</button>
+                        </div>
+                        <div class="checkout-coupon-meta" id="checkoutCouponMessage"></div>
+                    </div>
+
                     <h2 class="checkout-subheading mb-0">{{ __('frontend_order_overview') }}</h2>
                     <table class="order-overview-table">
                         <thead>
@@ -294,6 +306,10 @@
                             <tr id="checkoutShippingRow">
                                 <td class="subtotal-label">{{ __('frontend_shipping_costs') }}</td>
                                 <td id="checkoutShippingAmount">{{ $currencySymbol }}0.00</td>
+                            </tr>
+                            <tr id="checkoutDiscountRow" style="display:none;">
+                                <td class="subtotal-label">{{ __('coupon_discount') }}</td>
+                                <td id="checkoutDiscountAmount">-{{ $currencySymbol }}0.00</td>
                             </tr>
                             <tr class="total-row">
                                 <td>{{ __('frontend_in_total') }}</td>
@@ -388,15 +404,21 @@
 <script>
 (() => {
 const storageKey = 'foodshop_frontend_cart';
+const couponStorageKey = 'foodshop_frontend_coupon';
 const stripeIntentStorageKey = 'foodshop_frontend_stripe_intent';
 const cartDataField = document.getElementById('cartDataField');
 const shippingFields = document.getElementById('shippingCostsField');
 const vatField = document.getElementById('vatAmountField');
+const couponCodeField = document.getElementById('couponCodeField');
 const gatewayPaymentIntentField = document.getElementById('gatewayPaymentIntentField');
 const checkoutForm = document.getElementById('checkoutForm');
 const checkoutCustomerType = document.getElementById('checkoutCustomerType');
 const checkoutCompanyNameWrap = document.getElementById('checkoutCompanyNameWrap');
 const checkoutCompanyName = document.getElementById('checkoutCompanyName');
+const checkoutCouponCode = document.getElementById('checkoutCouponCode');
+const checkoutApplyCoupon = document.getElementById('checkoutApplyCoupon');
+const checkoutRemoveCoupon = document.getElementById('checkoutRemoveCoupon');
+const checkoutCouponMessage = document.getElementById('checkoutCouponMessage');
 const placeOrderButton = document.getElementById('placeOrderButton');
 const paymentDescriptionBox = document.getElementById('paymentDescriptionBox');
 const paymentDescriptionText = document.getElementById('paymentDescriptionText');
@@ -413,6 +435,7 @@ let deliverySummary = @json($initialDeliverySummary);
 const paymentMethods = @json($paymentMethods);
 const paymentIntentUrl = @json(route('frontend.checkout.payment-intent'));
 const deliverySummaryUrl = @json(route('frontend.checkout.delivery-summary'));
+const validateCouponUrl = @json(route('frontend.checkout.validate-coupon'));
 const csrfToken = @json(csrf_token());
 const stripeCountryMap = @json($checkoutCountryCodes);
 const checkoutMinOrderNote = document.getElementById('checkoutMinOrderNote');
@@ -431,6 +454,9 @@ const i18n = {
 
 function money(value){ return currencySymbol + Number(value / currencyRate).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function loadCart(){ try{ return JSON.parse(sessionStorage.getItem(storageKey)) || []; }catch(error){ return []; } }
+function loadCoupon(){ try{ return JSON.parse(sessionStorage.getItem(couponStorageKey)) || null; }catch(error){ return null; } }
+function saveCoupon(coupon){ try{ sessionStorage.setItem(couponStorageKey, JSON.stringify(coupon)); }catch(error){} }
+function clearCoupon(){ try{ sessionStorage.removeItem(couponStorageKey); }catch(error){} }
 function saveStripeIntent(methodCode, paymentIntentId){ try{ sessionStorage.setItem(stripeIntentStorageKey, JSON.stringify({ method_code: methodCode, payment_intent_id: paymentIntentId || '' })); }catch(error){} }
 function loadStripeIntent(){ try{ return JSON.parse(sessionStorage.getItem(stripeIntentStorageKey)) || null; }catch(error){ return null; } }
 function clearStripeIntent(){ try{ sessionStorage.removeItem(stripeIntentStorageKey); }catch(error){} }
@@ -462,8 +488,33 @@ function showGatewayWarning(show, message = '') {
     paymentGatewayWarning.textContent = message || @json(__('frontend_payment_gateway_setup_required'));
     paymentGatewayWarning.classList.toggle('d-none', !show);
 }
+function setCheckoutCouponMessage(message, type = 'success') {
+    if (!checkoutCouponMessage) {
+        return;
+    }
+
+    if (!message) {
+        checkoutCouponMessage.className = 'checkout-coupon-meta';
+        checkoutCouponMessage.textContent = '';
+        return;
+    }
+
+    checkoutCouponMessage.className = `checkout-coupon-meta is-visible is-${type}`;
+    checkoutCouponMessage.textContent = message;
+}
+function syncCheckoutCouponUI() {
+    if (!checkoutCouponCode) {
+        return;
+    }
+
+    checkoutCouponCode.value = appliedCoupon?.code || '';
+    checkoutCouponCode.readOnly = Boolean(appliedCoupon?.code);
+    checkoutApplyCoupon?.classList.toggle('d-none', Boolean(appliedCoupon?.code));
+    checkoutRemoveCoupon?.classList.toggle('d-none', !appliedCoupon?.code);
+}
 
 let cart = loadCart();
+let appliedCoupon = loadCoupon();
 let stripe = null;
 let elements = null;
 let cardNumberElement = null;
@@ -472,6 +523,7 @@ let cardCvcElement = null;
 let subtotal = 0;
 let shippingAmount = 0;
 let vatAmount = 0;
+let discountAmount = 0;
 let totalAmount = 0;
 let checkoutMinOrderBlocked = false;
 let isProcessing = false;
@@ -510,6 +562,29 @@ async function refreshDeliverySummary() {
     updateMinimumOrderWarning();
 }
 
+async function validateCoupon(code) {
+    const response = await fetch(validateCouponUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({
+            coupon_code: code,
+            cart_data: JSON.stringify(cart),
+            order_type: selectedOrderType(),
+        })
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.message || @json(__('coupon_code_invalid')));
+    }
+
+    return payload;
+}
+
 function refreshPlaceOrderButtonState() {
     if (!placeOrderButton) {
         return;
@@ -528,7 +603,7 @@ function updateMinimumOrderWarning() {
     }
 
     const minAmount = Number(deliverySummary?.shipping_fee?.min_order_amount ?? 0);
-    const meetsRequirement = totalAmount >= minAmount;
+    const meetsRequirement = subtotal >= minAmount;
 
     if (minAmount > 0 && !meetsRequirement) {
         checkoutMinOrderNote.textContent = minOrderMessageTemplate.replace(':amount', money(minAmount));
@@ -557,10 +632,41 @@ async function recalculateTotals() {
     await refreshDeliverySummary();
     shippingAmount = selectedOrderType() === 'pick_up' ? 0 : Number(deliverySummary.shipping_cost || 0);
     vatAmount = subtotal > 0 && activeTax ? (activeTax.calculation_type === 'percentage' ? subtotal * (Number(activeTax.amount) / 100) : Number(activeTax.amount)) : 0;
+    discountAmount = 0;
     totalAmount = subtotal + shippingAmount + vatAmount;
+
+    if (appliedCoupon?.code) {
+        try {
+            const payload = await validateCoupon(appliedCoupon.code);
+            appliedCoupon = payload.coupon;
+            saveCoupon(appliedCoupon);
+            shippingAmount = Number(payload?.totals?.shipping_costs || shippingAmount);
+            vatAmount = Number(payload?.totals?.vat_amount || vatAmount);
+            discountAmount = Number(payload?.totals?.discount_amount || 0);
+            totalAmount = Number(payload?.totals?.grand_total || totalAmount);
+            setCheckoutCouponMessage(payload.message || '', 'success');
+        } catch (error) {
+            clearCoupon();
+            appliedCoupon = null;
+            discountAmount = 0;
+            setCheckoutCouponMessage('', 'success');
+        }
+    }
 
     document.getElementById('checkoutSubtotal').textContent = money(subtotal);
     document.getElementById('checkoutShippingAmount').textContent = money(shippingAmount);
+    const discountRow = document.getElementById('checkoutDiscountRow');
+    const discountAmountCell = document.getElementById('checkoutDiscountAmount');
+    if (discountRow && discountAmountCell) {
+        if (discountAmount > 0) {
+            discountRow.style.display = 'table-row';
+            discountRow.querySelector('td').textContent = @json(__('coupon_discount')) + (appliedCoupon?.code ? ` (${appliedCoupon.code})` : '');
+            discountAmountCell.textContent = '-' + money(discountAmount);
+        } else {
+            discountRow.style.display = 'none';
+            discountAmountCell.textContent = '-' + money(0);
+        }
+    }
     document.getElementById('checkoutTotal').textContent = money(totalAmount);
 
     const vatText = activeTax && activeTax.calculation_type === 'percentage'
@@ -571,6 +677,10 @@ async function recalculateTotals() {
     document.getElementById('checkoutShippingRow').style.display = selectedOrderType() === 'pick_up' ? 'none' : 'table-row';
     shippingFields.value = shippingAmount;
     vatField.value = vatAmount;
+    if (couponCodeField) {
+        couponCodeField.value = appliedCoupon?.code || '';
+    }
+    syncCheckoutCouponUI();
     updateMinimumOrderWarning();
     refreshPlaceOrderButtonState();
 }
@@ -707,6 +817,7 @@ async function createStripePaymentIntent() {
     formData.append('order_type', selectedOrderType());
     formData.append('payment_method', method.code);
     formData.append('cart_data', JSON.stringify(cart));
+    formData.append('coupon_code', couponCodeField?.value || '');
 
     const response = await fetch(paymentIntentUrl, {
         method: 'POST',
@@ -778,6 +889,7 @@ cartDataField.value = JSON.stringify(cart);
 recalculateTotals();
 updatePaymentPanels();
 syncCustomerTypeUI();
+syncCheckoutCouponUI();
 
 if (checkoutCustomerType) {
     checkoutCustomerType.addEventListener('change', syncCustomerTypeUI);
@@ -791,9 +903,37 @@ document.querySelectorAll('input[name="payment_method"]').forEach((radio) => {
     radio.addEventListener('change', updatePaymentPanels);
 });
 
+checkoutApplyCoupon?.addEventListener('click', async function () {
+    const code = checkoutCouponCode?.value?.trim() || '';
+    if (!code) {
+        setCheckoutCouponMessage(@json(__('frontend_enter_coupon_code')), 'error');
+        return;
+    }
+
+    try {
+        const payload = await validateCoupon(code);
+        appliedCoupon = payload.coupon;
+        saveCoupon(appliedCoupon);
+        setCheckoutCouponMessage(payload.message || '', 'success');
+        await recalculateTotals();
+    } catch (error) {
+        setCheckoutCouponMessage(error.message || @json(__('coupon_code_invalid')), 'error');
+    }
+});
+
+checkoutRemoveCoupon?.addEventListener('click', async function () {
+    clearCoupon();
+    appliedCoupon = null;
+    setCheckoutCouponMessage(@json(__('coupon_removed_successfully')), 'success');
+    await recalculateTotals();
+});
+
 checkoutForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
     if (stripeSubmissionApproved) {
         stripeSubmissionApproved = false;
+        checkoutForm.submit();
         return;
     }
 
@@ -801,13 +941,8 @@ checkoutForm.addEventListener('submit', async (event) => {
 
     const method = getSelectedPaymentMethod();
     if (!method) {
-        event.preventDefault();
         showPaymentError(i18n.selectMethod);
         return;
-    }
-
-    if (method.requires_card_form) {
-        event.preventDefault();
     }
 
     if (gatewayPaymentIntentField && !gatewayPaymentIntentField.value) {
@@ -821,6 +956,7 @@ checkoutForm.addEventListener('submit', async (event) => {
     await recalculateTotals();
 
     if (!method.requires_card_form) {
+        checkoutForm.submit();
         return;
     }
     isProcessing = true;

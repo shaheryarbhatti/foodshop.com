@@ -16,6 +16,7 @@
 @section('styles')
 <style>
 :root{--frontend-view-cart-btn-bg:{{ $frontendViewCartButtonColor }};--frontend-view-cart-btn-text:{{ $frontendViewCartButtonTextColor }};--frontend-checkout-btn-bg:{{ $frontendCheckoutButtonColor }};--frontend-checkout-btn-text:{{ $frontendCheckoutButtonTextColor }}}.cart-page{padding:28px 0 44px}.cart-shell{padding:18px;border-radius:32px;background:rgba(117,117,117,.56);box-shadow:0 28px 70px rgba(0,0,0,.26);backdrop-filter:blur(8px)}.cart-hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:18px;align-items:stretch;margin-bottom:18px}.cart-hero-card,.cart-summary-card,.cart-item-card,.cart-empty-card{background:rgba(255,255,255,.96);box-shadow:0 16px 36px rgba(15,23,42,.12)}.cart-hero-card{padding:30px 30px 28px;border-radius:24px}.cart-kicker{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;background:rgba(255,202,39,.18);color:#8a4d00;font-size:.8rem;font-weight:900;letter-spacing:.18em;text-transform:uppercase}.cart-heading{margin:18px 0 12px;font-size:clamp(2.2rem,4vw,3.4rem);font-weight:900;line-height:1.02;color:#101828}.cart-copy{max-width:640px;margin:0;color:#475467;font-size:1.03rem;line-height:1.7}.cart-highlight-card{padding:24px;border-radius:24px;background:linear-gradient(135deg,rgba(17,17,17,.94),rgba(37,37,37,.92));color:#fff;position:relative;overflow:hidden}.cart-highlight-card::before{content:"";position:absolute;inset:auto -80px -90px auto;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(255,202,39,.3),transparent 68%)}.cart-highlight-kicker{font-size:.82rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72)}.cart-highlight-total{margin:16px 0 8px;font-size:clamp(2.4rem,4vw,3rem);font-weight:900;line-height:1}.cart-highlight-copy{margin:0;color:rgba(255,255,255,.76);line-height:1.7}.cart-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(320px,.85fr);gap:18px;align-items:start}.cart-stack{display:flex;flex-direction:column;gap:16px}.cart-item-card{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px;padding:18px;border-radius:24px}.cart-item-image{width:100%;height:148px;border-radius:18px;object-fit:cover;box-shadow:0 12px 24px rgba(15,23,42,.16)}.cart-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.cart-item-title{margin:0;font-size:1.25rem;font-weight:900;color:#111827}.cart-item-subtitle{margin:6px 0 0;color:#667085;font-size:.95rem}.cart-remove-btn{width:42px;height:42px;border:0;border-radius:14px;background:#eb3348;color:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 12px 22px rgba(235,51,72,.22)}.cart-addon-list{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 0;padding:0;list-style:none}.cart-addon-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#fff4cc;color:#5f4300;font-size:.87rem;font-weight:800}.cart-addon-chip i{font-size:.72rem}.cart-remarks{margin-top:14px;padding:14px 16px;border-radius:16px;background:#f8fafc;color:#475467;line-height:1.6}.cart-item-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding-top:18px;border-top:1px solid rgba(15,23,42,.10)}.cart-qty-control{display:inline-flex;align-items:center;gap:10px;padding:6px;border-radius:16px;background:#fff;border:1px solid rgba(15,23,42,.10);box-shadow:inset 0 1px 0 rgba(255,255,255,.75)}.cart-qty-btn{width:42px;height:42px;border:0;border-radius:12px;background:#f4f6f8;color:#111827;font-size:1.05rem;font-weight:900}.cart-qty-value{min-width:34px;text-align:center;font-size:1.05rem;font-weight:900;color:#111827}.cart-item-price{text-align:right}.cart-unit-price{display:block;color:#667085;font-size:.92rem}.cart-line-total{display:block;color:#101828;font-size:1.25rem;font-weight:900}.cart-summary-card{position:sticky;top:98px;padding:26px;border-radius:24px}.cart-summary-title{margin:0 0 18px;font-size:1.5rem;font-weight:900;color:#111827}.cart-summary-block{padding:18px;border-radius:20px;background:linear-gradient(180deg,#ffffff,#f8fafc);border:1px solid rgba(15,23,42,.08)}.cart-summary-line{display:flex;justify-content:space-between;gap:16px;margin-bottom:14px;color:#344054;font-size:1rem}.cart-summary-line:last-child{margin-bottom:0}.cart-summary-total{margin-top:18px;padding-top:18px;border-top:1px solid rgba(15,23,42,.10);font-size:1.1rem;font-weight:900;color:#101828}.cart-summary-note{margin:18px 0 0;color:#667085;line-height:1.7}.cart-summary-actions{display:grid;gap:12px;margin-top:22px}.cart-summary-actions a{display:flex;align-items:center;justify-content:center;min-height:54px;padding:14px 18px;border-radius:16px;text-decoration:none!important;font-size:1rem;font-weight:900;box-shadow:0 12px 24px rgba(15,23,42,.12);transition:transform .18s ease,box-shadow .18s ease}.cart-summary-actions a:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(15,23,42,.16)}.cart-summary-actions .secondary{background:linear-gradient(135deg,var(--frontend-view-cart-btn-bg),var(--frontend-view-cart-btn-bg));color:var(--frontend-view-cart-btn-text)}.cart-summary-actions .primary{background:linear-gradient(135deg,var(--frontend-checkout-btn-bg),var(--frontend-checkout-btn-bg));color:var(--frontend-checkout-btn-text)}.cart-empty-card{padding:34px 26px;border-radius:24px;text-align:center}.cart-empty-icon{width:84px;height:84px;margin:0 auto 18px;border-radius:24px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,202,39,.28),rgba(255,202,39,.12));color:#9a5d00;font-size:2rem}.cart-empty-title{margin:0 0 10px;font-size:1.6rem;font-weight:900;color:#101828}.cart-empty-copy{margin:0 auto 18px;max-width:520px;color:#667085;line-height:1.75}.cart-empty-action{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 20px;border-radius:16px;background:linear-gradient(135deg,var(--frontend-view-cart-btn-bg),var(--frontend-view-cart-btn-bg));color:var(--frontend-view-cart-btn-text);font-weight:900;text-decoration:none!important}.cart-muted{color:#667085}@media (max-width:991.98px){.cart-hero,.cart-grid{grid-template-columns:1fr}.cart-summary-card{position:static}}@media (max-width:767.98px){.cart-page{padding-top:18px}.cart-shell{padding:12px;border-radius:22px}.cart-hero-card,.cart-highlight-card,.cart-summary-card,.cart-item-card,.cart-empty-card{border-radius:20px}.cart-hero-card{padding:24px 20px}.cart-item-card{grid-template-columns:1fr}.cart-item-image{height:210px}.cart-item-footer{flex-direction:column;align-items:stretch}.cart-item-price{text-align:left}.cart-summary-card{padding:20px}}
+.cart-coupon-box{margin-top:18px;padding:16px;border-radius:18px;background:#fff7e8;border:1px solid rgba(234,179,8,.2)}.cart-coupon-label{display:block;margin-bottom:10px;font-size:.86rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8a4d00}.cart-coupon-row{display:flex;gap:10px}.cart-coupon-input{flex:1;border:1px solid rgba(15,23,42,.12);border-radius:14px;padding:12px 14px;font-weight:700}.cart-coupon-apply,.cart-coupon-remove{border:0;border-radius:14px;padding:0 16px;font-weight:900}.cart-coupon-apply{background:#111827;color:#fff}.cart-coupon-remove{background:#fff;color:#b42318;border:1px solid rgba(180,35,24,.16)}.cart-coupon-meta{margin-top:12px;font-size:.92rem;line-height:1.6}.cart-coupon-meta.is-success{color:#166534}.cart-coupon-meta.is-error{color:#b42318}.cart-summary-discount{color:#15803d;font-weight:800}
 </style>
 <style>
     .cart-min-order-note {
@@ -62,6 +63,15 @@
 
                 <aside class="cart-summary-card">
                     <h2 class="cart-summary-title">{{ __('frontend_order_summary') }}</h2>
+                    <div class="cart-coupon-box">
+                        <label for="cartCouponCode" class="cart-coupon-label">{{ __('coupon_code') }}</label>
+                        <div class="cart-coupon-row">
+                            <input type="text" id="cartCouponCode" class="cart-coupon-input" placeholder="{{ __('frontend_enter_coupon_code') }}">
+                            <button type="button" class="cart-coupon-apply" id="cartApplyCoupon">{{ __('apply_coupon') }}</button>
+                            <button type="button" class="cart-coupon-remove d-none" id="cartRemoveCoupon">{{ __('remove_coupon') }}</button>
+                        </div>
+                        <div class="cart-coupon-meta d-none" id="cartCouponMessage"></div>
+                    </div>
                     <div class="cart-summary-block" id="cartSummaryWrap">
                         <div class="cart-summary-line">
                             <span>{{ __('frontend_subtotal') }}</span>
@@ -96,6 +106,7 @@
 <script>
 (() => {
 const storageKey = 'foodshop_frontend_cart';
+const couponStorageKey = 'foodshop_frontend_coupon';
 const currencyRate = {{ json_encode($currencyRate) }};
 const currencySymbol = @json($currencySymbol);
 const fallbackImage = @json($fallbackImage);
@@ -120,13 +131,22 @@ const cartMinOrderNote = document.getElementById('cartMinOrderNote');
 const cartCheckoutButton = document.getElementById('btnCartToCheckout');
 const cartBadge = document.querySelector('.portal-cart-badge');
 const cartDeliverySummaryUrl = @json(route('frontend.checkout.delivery-summary'));
+const cartValidateCouponUrl = @json(route('frontend.checkout.validate-coupon'));
 const csrfToken = @json(csrf_token());
 const minOrderMessageTemplate = @json(__('frontend_min_order_amount_note'));
+const couponInput = document.getElementById('cartCouponCode');
+const applyCouponButton = document.getElementById('cartApplyCoupon');
+const removeCouponButton = document.getElementById('cartRemoveCoupon');
+const couponMessage = document.getElementById('cartCouponMessage');
+let appliedCoupon = loadCoupon();
 let cart = loadCart();
 
 function money(value){return currencySymbol + Number(value / currencyRate).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function loadCart(){try{return JSON.parse(sessionStorage.getItem(storageKey)) || []}catch(error){return []}}
 function saveCart(){sessionStorage.setItem(storageKey, JSON.stringify(cart))}
+function loadCoupon(){try{return JSON.parse(sessionStorage.getItem(couponStorageKey)) || null}catch(error){return null}}
+function saveCoupon(coupon){sessionStorage.setItem(couponStorageKey, JSON.stringify(coupon))}
+function clearCoupon(){appliedCoupon = null; sessionStorage.removeItem(couponStorageKey)}
 function basketCount(){return cart.reduce((sum,item)=>sum + Number(item.quantity || 0),0)}
 function updateBadge(){if(cartBadge){cartBadge.textContent = String(basketCount())}}
 function normalizeItem(item){
@@ -152,12 +172,53 @@ function itemCard(item, index){
     const safeItem = normalizeItem(item);
     return `<article class="cart-item-card"><img src="${safeItem.image_url || fallbackImage}" alt="${safeItem.title}" class="cart-item-image"><div><div class="cart-item-top"><div><h3 class="cart-item-title">${safeItem.serial_number} ${safeItem.title}</h3><div class="cart-item-subtitle">${safeItem.description || labels.shipSoon}</div></div><button type="button" class="cart-remove-btn js-remove-cart-item" data-cart-index="${index}"><i class="fa-solid fa-xmark"></i></button></div>${addonMarkup(safeItem.addons)}${remarksMarkup(safeItem)}<div class="cart-item-footer"><div class="cart-qty-control"><button type="button" class="cart-qty-btn js-cart-qty" data-action="decrease" data-cart-index="${index}">-</button><span class="cart-qty-value">${safeItem.quantity}</span><button type="button" class="cart-qty-btn js-cart-qty" data-action="increase" data-cart-index="${index}">+</button></div><div class="cart-item-price"><span class="cart-unit-price">${labels.item} ${money(safeItem.unit_total)}</span><span class="cart-line-total">${money(safeItem.line_total)}</span></div></div></div></article>`;
 }
-function renderSummary(subtotal, shippingAmount, vatAmount, totalAmount){
+function setCouponMessage(message, type = 'success'){
+    if(!couponMessage){return}
+    if(!message){
+        couponMessage.className = 'cart-coupon-meta d-none';
+        couponMessage.textContent = '';
+        return;
+    }
+    couponMessage.className = `cart-coupon-meta is-${type}`;
+    couponMessage.textContent = message;
+}
+function syncCouponUI(){
+    if(couponInput){
+        couponInput.value = appliedCoupon?.code || '';
+        couponInput.readOnly = Boolean(appliedCoupon?.code);
+    }
+    if(applyCouponButton){applyCouponButton.classList.toggle('d-none', Boolean(appliedCoupon?.code))}
+    if(removeCouponButton){removeCouponButton.classList.toggle('d-none', !appliedCoupon?.code)}
+}
+function renderSummary(subtotal, shippingAmount, vatAmount, discountAmount, totalAmount){
     const vatDisplay = activeTax && activeTax.calculation_type === 'percentage'
         ? `${money(vatAmount)} (${String(activeTax.amount).replace(/\.00$/,'')}%)`
         : money(vatAmount);
-    cartSummaryWrap.innerHTML = `<div class="cart-summary-line"><span>${labels.subtotal}</span><span>${money(subtotal)}</span></div><div class="cart-summary-line"><span>${labels.shippingCosts}</span><span>${money(shippingAmount)}</span></div><div class="cart-summary-line"><span>${labels.vat}</span><span>${vatDisplay}</span></div><div class="cart-summary-line cart-summary-total"><span>${labels.total}</span><span>${money(totalAmount)}</span></div>`;
+    const discountRow = discountAmount > 0 ? `<div class="cart-summary-line cart-summary-discount"><span>${@json(__('coupon_discount'))}${appliedCoupon?.code ? ` (${appliedCoupon.code})` : ''}</span><span>-${money(discountAmount)}</span></div>` : '';
+    cartSummaryWrap.innerHTML = `<div class="cart-summary-line"><span>${labels.subtotal}</span><span>${money(subtotal)}</span></div><div class="cart-summary-line"><span>${labels.shippingCosts}</span><span>${money(shippingAmount)}</span></div><div class="cart-summary-line"><span>${labels.vat}</span><span>${vatDisplay}</span></div>${discountRow}<div class="cart-summary-line cart-summary-total"><span>${labels.total}</span><span>${money(totalAmount)}</span></div>`;
     cartHeroTotal.textContent = money(totalAmount);
+}
+async function validateCoupon(code){
+    const response = await fetch(cartValidateCouponUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({
+            coupon_code: code,
+            cart_data: JSON.stringify(cart),
+            order_type: 'delivery'
+        })
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.message || @json(__('coupon_code_invalid')));
+    }
+
+    return payload;
 }
 async function evaluateCartMinimum(subtotal) {
     if(!cartMinOrderNote || !cartCheckoutButton || subtotal <= 0) {
@@ -199,19 +260,41 @@ async function evaluateCartMinimum(subtotal) {
     cartCheckoutButton.removeAttribute('aria-disabled');
     cartCheckoutButton.style.pointerEvents = '';
 }
-function renderCart(){
+async function renderCart(){
     updateBadge();
+    syncCouponUI();
     if(!cart.length){
+        clearCoupon();
+        setCouponMessage('');
         cartItemsWrap.innerHTML = emptyMarkup();
-        renderSummary(0, 0, 0, 0);
+        renderSummary(0, 0, 0, 0, 0);
         return;
     }
     cartItemsWrap.innerHTML = cart.map((item, index) => itemCard(item, index)).join('');
     const subtotal = cart.reduce((sum, item) => sum + Number(normalizeItem(item).line_total), 0);
-    const shippingAmount = subtotal > 0 && activeShippingFee ? Number(activeShippingFee.fee) : 0;
-    const vatAmount = subtotal > 0 && activeTax ? (activeTax.calculation_type === 'percentage' ? subtotal * (Number(activeTax.amount) / 100) : Number(activeTax.amount)) : 0;
-    const totalAmount = subtotal + shippingAmount + vatAmount;
-    renderSummary(subtotal, shippingAmount, vatAmount, totalAmount);
+    let shippingAmount = subtotal > 0 && activeShippingFee ? Number(activeShippingFee.fee) : 0;
+    let vatAmount = subtotal > 0 && activeTax ? (activeTax.calculation_type === 'percentage' ? subtotal * (Number(activeTax.amount) / 100) : Number(activeTax.amount)) : 0;
+    let discountAmount = 0;
+    let totalAmount = subtotal + shippingAmount + vatAmount;
+
+    if(appliedCoupon?.code){
+        try{
+            const payload = await validateCoupon(appliedCoupon.code);
+            appliedCoupon = payload.coupon;
+            saveCoupon(appliedCoupon);
+            shippingAmount = Number(payload?.totals?.shipping_costs || shippingAmount);
+            vatAmount = Number(payload?.totals?.vat_amount || vatAmount);
+            discountAmount = Number(payload?.totals?.discount_amount || 0);
+            totalAmount = Number(payload?.totals?.grand_total || totalAmount);
+            setCouponMessage(payload.message || '', 'success');
+        }catch(error){
+            clearCoupon();
+            syncCouponUI();
+            setCouponMessage(error.message || @json(__('coupon_code_invalid')), 'error');
+        }
+    }
+
+    renderSummary(subtotal, shippingAmount, vatAmount, discountAmount, totalAmount);
     evaluateCartMinimum(subtotal);
 }
 
@@ -254,6 +337,30 @@ if(btnCartToCheckout){
         }
     });
 }
+
+applyCouponButton?.addEventListener('click', async function () {
+    const code = couponInput?.value?.trim() || '';
+    if(!code){
+        setCouponMessage(@json(__('frontend_enter_coupon_code')), 'error');
+        return;
+    }
+
+    try{
+        const payload = await validateCoupon(code);
+        appliedCoupon = payload.coupon;
+        saveCoupon(appliedCoupon);
+        setCouponMessage(payload.message || '', 'success');
+        await renderCart();
+    }catch(error){
+        setCouponMessage(error.message || @json(__('coupon_code_invalid')), 'error');
+    }
+});
+
+removeCouponButton?.addEventListener('click', async function () {
+    clearCoupon();
+    setCouponMessage(@json(__('coupon_removed_successfully')), 'success');
+    await renderCart();
+});
 
 renderCart();
 })();

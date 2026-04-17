@@ -213,6 +213,9 @@
                         <div class="invoice-summary__row"><span>{{ __('subtotal') }}</span><strong>{{ $money($order->subtotal) }}</strong></div>
                         <div class="invoice-summary__row"><span>{{ __('shipping_fee') }}</span><strong>{{ $money($order->shipping_costs) }}</strong></div>
                         <div class="invoice-summary__row"><span>{{ __('frontend_vat') }}</span><strong>{{ $money($order->vat_amount) }}</strong></div>
+                        @if((float) $order->discount_amount > 0)
+                            <div class="invoice-summary__row"><span>{{ __('coupon_discount') }}{{ $order->coupon_code ? ' (' . $order->coupon_code . ')' : '' }}</span><strong>-{{ $money($order->discount_amount) }}</strong></div>
+                        @endif
                         <div class="invoice-summary__row invoice-summary__total"><span>{{ __('grand_total') }}</span><strong>{{ $money($order->grand_total) }}</strong></div>
                     </div>
                 </div>

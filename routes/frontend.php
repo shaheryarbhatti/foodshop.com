@@ -41,11 +41,15 @@ Route::post('/reverse-geocode-address', [FrontendCustomerAuthController::class, 
 
 Route::middleware(['auth', 'license'])->prefix('staff')->group(function () {
     Route::get('/dashboard', [FrontendStaffPortalController::class, 'dashboard'])->name('frontend.staff.dashboard');
+    Route::get('/notifications/summary', [FrontendStaffPortalController::class, 'notificationSummary'])->name('frontend.staff.notifications.summary');
     Route::get('/route-planner-data', [FrontendStaffPortalController::class, 'routePlannerData'])->name('frontend.staff.route-planner-data');
     Route::get('/orders/{order}/available-drivers', [FrontendStaffPortalController::class, 'availableDrivers'])->name('frontend.staff.orders.available-drivers');
     Route::get('/orders/{order}/available-branches', [FrontendStaffPortalController::class, 'availableBranches'])->name('frontend.staff.orders.available-branches');
     Route::patch('/orders/{order}/assign-driver', [FrontendStaffPortalController::class, 'assignDriver'])->name('frontend.staff.orders.assign-driver');
     Route::patch('/orders/{order}/change-branch', [FrontendStaffPortalController::class, 'updateBranch'])->name('frontend.staff.orders.change-branch');
+    Route::patch('/orders/{order}/mark-paid', [FrontendStaffPortalController::class, 'markPaid'])->name('frontend.staff.orders.mark-paid');
+    Route::patch('/orders/{order}/driver-offer/accept', [FrontendStaffPortalController::class, 'acceptDriverOffer'])->name('frontend.staff.orders.driver-offer.accept');
+    Route::patch('/orders/{order}/driver-offer/reject', [FrontendStaffPortalController::class, 'rejectDriverOffer'])->name('frontend.staff.orders.driver-offer.reject');
     Route::get('/orders/{order}/edit', [FrontendStaffPortalController::class, 'edit'])->name('frontend.staff.orders.edit');
     Route::put('/orders/{order}', [FrontendStaffPortalController::class, 'update'])->name('frontend.staff.orders.update');
     Route::patch('/orders/{order}/status', [FrontendStaffPortalController::class, 'updateStatus'])->name('frontend.staff.orders.update-status');
@@ -100,6 +104,7 @@ Route::get('/cart', function () {
 
 Route::get('/checkout', [FrontendCheckoutController::class, 'index'])->name('frontend.checkout');
 Route::post('/checkout/delivery-summary', [FrontendCheckoutController::class, 'deliverySummary'])->name('frontend.checkout.delivery-summary');
+Route::post('/checkout/validate-coupon', [FrontendCheckoutController::class, 'validateCoupon'])->name('frontend.checkout.validate-coupon');
 Route::post('/checkout/payment-intent', [FrontendCheckoutController::class, 'createPaymentIntent'])->name('frontend.checkout.payment-intent');
 Route::post('/checkout', [FrontendCheckoutController::class, 'submit'])->name('frontend.checkout.submit');
 Route::get('/checkout/success', [FrontendCheckoutController::class, 'success'])->name('frontend.checkout.success');

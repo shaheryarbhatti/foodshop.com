@@ -90,6 +90,7 @@
                                         <th>{{ __('payment') }}</th>
                                         <th>{{ __('status') }}</th>
                                         <th>{{ __('grand_total') }}</th>
+                                        <th>{{ __('extra_paid_amount') }}</th>
                                         <th>{{ __('action') }}</th>
                                     </tr>
                                 </thead>
@@ -218,6 +219,11 @@
                                 <option value="{{ $value }}">{{ $label }}</option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="portal-alert portal-alert--error d-none" id="orderStatusPaymentNotice">{{ __('offline_payment_delivery_notice') }}</div>
+                    <div class="form-check mb-3 d-none" id="orderStatusPaymentConfirmWrap">
+                        <input class="form-check-input" type="checkbox" id="orderStatusPaymentConfirm">
+                        <label class="form-check-label fw-semibold" for="orderStatusPaymentConfirm">{{ __('confirm_payment_received_checkbox') }}</label>
                     </div>
                     <div class="text-end">
                         <button type="submit" class="btn btn-dark" id="orderStatusSaveButton">{{ __('save_settings') }}</button>
@@ -385,6 +391,10 @@ window.initFrontendStaffDashboard = function () {
     window.__frontendStaffDashboardInitialized = true;
 
     const canUseGoogleMaps = @json($canUseGoogleMaps);
+    const isDriverPortal = @json($portalUser->hasRole('Driver'));
+    const csrfToken = @json(csrf_token());
+    const driverOfferAcceptUrlTemplate = @json(route('frontend.staff.orders.driver-offer.accept', ['order' => '__ORDER__']));
+    const driverOfferRejectUrlTemplate = @json(route('frontend.staff.orders.driver-offer.reject', ['order' => '__ORDER__']));
     const statusLabels = @json(['all' => __('all_orders')] + $statusOptions);
     const table = $('#ordersTable').DataTable({
         processing: true,
@@ -404,6 +414,7 @@ window.initFrontendStaffDashboard = function () {
             { data: 'payment_summary', name: 'payment_method', orderable: false, searchable: false },
             { data: 'status_selector', name: 'order_status', orderable: false, searchable: false },
             { data: 'grand_total_display', name: 'grand_total', searchable: false },
+            { data: 'extra_paid_display', name: 'extra_amount_paid', searchable: false, orderable: false },
             { data: 'action', name: 'action', orderable: false, searchable: false }
         ],
         pageLength: 10,
@@ -447,6 +458,9 @@ window.initFrontendStaffDashboard = function () {
     const orderStatusSelect = document.getElementById('orderStatusSelect');
     const orderStatusUpdateUrl = document.getElementById('orderStatusUpdateUrl');
     const orderStatusSaveButton = document.getElementById('orderStatusSaveButton');
+    const orderStatusPaymentNotice = document.getElementById('orderStatusPaymentNotice');
+    const orderStatusPaymentConfirmWrap = document.getElementById('orderStatusPaymentConfirmWrap');
+    const orderStatusPaymentConfirm = document.getElementById('orderStatusPaymentConfirm');
     const assignDriverModalTitle = document.getElementById('assignDriverModalTitle');
     const assignDriverForm = document.getElementById('assignDriverForm');
     const assignDriverOrderId = document.getElementById('assignDriverOrderId');
@@ -480,6 +494,224 @@ window.initFrontendStaffDashboard = function () {
     let singleRouteOriginMode = 'branch';
     let singleRouteCurrentLocation = null;
     let activeSingleRoute = null;
+    let notificationAudioContext = null;
+    let notificationAudioUnlocked = false;
+    let activeNotificationBeepTimer = null;
+    let orderStatusPaymentMethod = '';
+    let orderStatusPaymentStatus = '';
+
+    const syncOrderStatusPaymentConfirmation = function () {
+        const requiresConfirmation = ['cash_on_delivery', 'bank_account'].includes(orderStatusPaymentMethod)
+            && !['paid', 'success'].includes(orderStatusPaymentStatus)
+            && orderStatusSelect?.value === @json(\App\Models\Order::STATUS_DELIVERED);
+
+        orderStatusPaymentNotice?.classList.toggle('d-none', !requiresConfirmation);
+        orderStatusPaymentConfirmWrap?.classList.toggle('d-none', !requiresConfirmation);
+
+        if (orderStatusPaymentConfirm) {
+            orderStatusPaymentConfirm.checked = false;
+        }
+    };
+
+    const ensureNotificationAudio = function () {
+        if (notificationAudioContext || !window.AudioContext) { return; }
+        notificationAudioContext = new window.AudioContext();
+    };
+
+    const unlockNotificationAudio = async function () {
+        ensureNotificationAudio();
+        if (!notificationAudioContext) { return; }
+
+        try {
+            if (notificationAudioContext.state === 'suspended') {
+                await notificationAudioContext.resume();
+            }
+            notificationAudioUnlocked = true;
+        } catch (error) {
+            notificationAudioUnlocked = false;
+        }
+    };
+
+    const playNotificationBeep = async function () {
+        await unlockNotificationAudio();
+        if (!notificationAudioContext || !notificationAudioUnlocked) { return; }
+
+        const oscillator = notificationAudioContext.createOscillator();
+        const gainNode = notificationAudioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1046.5, notificationAudioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.0001, notificationAudioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.12, notificationAudioContext.currentTime + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, notificationAudioContext.currentTime + 0.28);
+        oscillator.connect(gainNode);
+        gainNode.connect(notificationAudioContext.destination);
+        oscillator.start();
+        oscillator.stop(notificationAudioContext.currentTime + 0.30);
+    };
+
+    const stopRepeatingNotificationBeep = function () {
+        if (activeNotificationBeepTimer) {
+            window.clearInterval(activeNotificationBeepTimer);
+            activeNotificationBeepTimer = null;
+        }
+    };
+
+    const startRepeatingNotificationBeep = function () {
+        stopRepeatingNotificationBeep();
+        playNotificationBeep();
+        activeNotificationBeepTimer = window.setInterval(() => {
+            playNotificationBeep();
+        }, 900);
+    };
+
+    const postDriverOfferAction = async function (url) {
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: new URLSearchParams({ _token: csrfToken }).toString(),
+            credentials: 'same-origin'
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.message || 'Unable to update this driver request right now.');
+        }
+
+        return payload;
+    };
+
+    const showStaffOrderAlert = function (title, message) {
+        if (typeof Swal === 'undefined') { return; }
+
+        startRepeatingNotificationBeep();
+        Swal.fire({
+            title: title || 'New order received',
+            html: `
+                <div style="display:flex;align-items:flex-start;gap:14px;text-align:left;">
+                    <div style="width:52px;height:52px;flex:0 0 52px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e293b);color:#ffffff;font-size:1.15rem;box-shadow:0 16px 28px rgba(15,23,42,.18);">
+                        <i class="fa-solid fa-bell"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1rem;font-weight:900;color:#0f172a;margin-bottom:6px;">${escapeHtml(title || 'Branch order alert')}</div>
+                        <div style="color:#475569;line-height:1.7;">${escapeHtml(message || 'A new branch order just arrived and is ready for review.')}</div>
+                    </div>
+                </div>
+            `,
+            icon: null,
+            showConfirmButton: true,
+            confirmButtonText: 'Okay',
+            showCloseButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            customClass: {
+                popup: 'shadow-lg rounded-4',
+                confirmButton: 'btn btn-dark px-4'
+            },
+            buttonsStyling: false,
+            backdrop: 'rgba(15,23,42,0.55)'
+        }).then(function (result) {
+            stopRepeatingNotificationBeep();
+            if (result.isConfirmed) {
+                window.location.reload();
+            }
+        });
+    };
+
+    const showDriverOfferAlert = function (title, message, orderId) {
+        if (typeof Swal === 'undefined' || !orderId) { return; }
+
+        const acceptUrl = driverOfferAcceptUrlTemplate.replace('__ORDER__', orderId);
+        const rejectUrl = driverOfferRejectUrlTemplate.replace('__ORDER__', orderId);
+
+        startRepeatingNotificationBeep();
+        Swal.fire({
+            title: title || 'New delivery request',
+            html: `
+                <div style="display:flex;align-items:flex-start;gap:14px;text-align:left;">
+                    <div style="width:56px;height:56px;flex:0 0 56px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e293b);color:#ffffff;font-size:1.2rem;box-shadow:0 16px 28px rgba(15,23,42,.18);">
+                        <i class="fa-solid fa-motorcycle"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1rem;font-weight:900;color:#0f172a;margin-bottom:6px;">${escapeHtml(title || 'New delivery request')}</div>
+                        <div style="color:#475569;line-height:1.7;">${escapeHtml(message || 'A new order is available for your branch. Would you like to take it now?')}</div>
+                    </div>
+                </div>
+            `,
+            icon: null,
+            showConfirmButton: true,
+            showDenyButton: true,
+            confirmButtonText: @json(__('driver_accept_offer')),
+            denyButtonText: @json(__('driver_reject_offer')),
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showCloseButton: false,
+            customClass: {
+                popup: 'shadow-lg rounded-4',
+                confirmButton: 'btn btn-dark px-4',
+                denyButton: 'btn btn-outline-secondary px-4'
+            },
+            buttonsStyling: false,
+            backdrop: 'rgba(15,23,42,0.55)',
+            preConfirm: async function () {
+                try {
+                    return await postDriverOfferAction(acceptUrl);
+                } catch (error) {
+                    Swal.showValidationMessage(error.message);
+                    return false;
+                }
+            },
+            preDeny: async function () {
+                try {
+                    return await postDriverOfferAction(rejectUrl);
+                } catch (error) {
+                    Swal.showValidationMessage(error.message);
+                    return false;
+                }
+            }
+        }).then(function (result) {
+            stopRepeatingNotificationBeep();
+            if (result.isConfirmed || result.isDenied) {
+                window.location.reload();
+            }
+        });
+    };
+
+    const pollStaffNotifications = async function () {
+        const notificationEndpoint = @json(route('frontend.staff.notifications.summary'));
+        const previousLatestNotificationId = Number(window.__staffLatestNotificationId || @json($portalLatestNotificationId));
+
+        try {
+            const response = await fetch(notificationEndpoint, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                credentials: 'same-origin'
+            });
+            if (!response.ok) { return; }
+
+            const payload = await response.json();
+            const incomingLatestId = Number(payload.latest_id || 0);
+            if (incomingLatestId > previousLatestNotificationId) {
+                window.__staffLatestNotificationId = incomingLatestId;
+                if (isDriverPortal && payload.latest_type === 'driver_offer' && payload.latest_order_id) {
+                    showDriverOfferAlert(
+                        payload.latest_title || 'New delivery request',
+                        payload.latest_message || 'A new order is available for your branch. Would you like to take it now?',
+                        payload.latest_order_id
+                    );
+                    return;
+                }
+
+                showStaffOrderAlert(
+                    payload.latest_title || 'New order received',
+                    payload.latest_message || 'A new order has been received in your assigned branch.'
+                );
+            }
+        } catch (error) {
+        }
+    };
 
     const initBranchSelect = function () {
         if (!(window.jQuery && jQuery.fn.select2 && changeBranchSelect)) { return; }
@@ -1036,8 +1268,13 @@ window.initFrontendStaffDashboard = function () {
         orderStatusModalTitle.textContent = `${@json(__('status'))} - ${button.dataset.orderNumber || '#'}`;
         orderStatusUpdateUrl.value = button.dataset.url || '';
         orderStatusSelect.value = button.dataset.currentStatus || '';
+        orderStatusPaymentMethod = button.dataset.paymentMethod || '';
+        orderStatusPaymentStatus = button.dataset.paymentStatus || '';
+        syncOrderStatusPaymentConfirmation();
         statusModal.show();
     });
+
+    orderStatusSelect?.addEventListener('change', syncOrderStatusPaymentConfirmation);
 
     $(document).on('click', '.js-open-driver-assign-modal', function () {
         const button = this;
@@ -1129,18 +1366,70 @@ window.initFrontendStaffDashboard = function () {
         $.ajax({
             url: updateUrl,
             type: 'PATCH',
-            data: { _token: @json(csrf_token()), order_status: nextValue },
+            data: {
+                _token: @json(csrf_token()),
+                order_status: nextValue,
+                confirm_payment_received: orderStatusPaymentConfirm?.checked ? 1 : 0
+            },
             success: function () {
                 orderStatusSaveButton.disabled = false;
                 orderStatusSaveButton.textContent = defaultText;
                 statusModal.hide();
                 table.ajax.reload(null, false);
             },
-            error: function () {
+            error: function (xhr) {
                 orderStatusSaveButton.disabled = false;
                 orderStatusSaveButton.textContent = defaultText;
-                alert('Unable to update order status right now.');
+                Swal.fire({
+                    icon: 'error',
+                    title: @json(__('error')),
+                    text: xhr.responseJSON?.message || 'Unable to update order status right now.',
+                    confirmButtonText: @json(__('ok'))
+                });
             }
+        });
+    });
+
+    $(document).on('click', '.js-mark-order-paid', function () {
+        const button = this;
+        const updateUrl = button.dataset.url || '';
+        const orderNumber = button.dataset.orderNumber || '#';
+        const paymentMethodLabel = button.dataset.paymentMethodLabel || @json(__('payment_method'));
+        if (!updateUrl) { return; }
+
+        Swal.fire({
+            icon: 'question',
+            title: @json(__('mark_as_paid')),
+            text: `${@json(__('mark_order_paid_confirmation'))} (${orderNumber} - ${paymentMethodLabel})`,
+            showCancelButton: true,
+            confirmButtonText: @json(__('yes_mark_paid')),
+            cancelButtonText: @json(__('cancel'))
+        }).then((result) => {
+            if (!result.isConfirmed) { return; }
+
+            $.ajax({
+                url: updateUrl,
+                type: 'PATCH',
+                data: { _token: @json(csrf_token()) },
+                success: function (response) {
+                    table.ajax.reload(null, false);
+                    Swal.fire({
+                        icon: 'success',
+                        title: @json(__('success')),
+                        text: response.message || @json(__('order_marked_paid_successfully')),
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                },
+                error: function (xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: @json(__('error')),
+                        text: xhr.responseJSON?.message || @json(__('unable_to_mark_order_paid')),
+                        confirmButtonText: @json(__('ok'))
+                    });
+                }
+            });
         });
     });
 
@@ -1238,6 +1527,13 @@ window.initFrontendStaffDashboard = function () {
             google.maps.event.trigger(plannerGoogleMap, 'resize');
         }
     });
+
+    ['pointerdown', 'keydown'].forEach(eventName => {
+        window.addEventListener(eventName, unlockNotificationAudio, { once: true, passive: true });
+    });
+
+    window.__staffLatestNotificationId = @json($portalLatestNotificationId);
+    window.setInterval(pollStaffNotifications, 15000);
 };
 
 if (document.readyState === 'loading') {

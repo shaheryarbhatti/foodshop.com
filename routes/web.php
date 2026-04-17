@@ -14,6 +14,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CouponController;
 use App\Http\Controllers\ProductAddonController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\ShippingFeeController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\CountryController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\AdminNotificationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\EmailTemplateController;
@@ -212,6 +214,15 @@ Route::middleware(['auth', 'license'])->prefix('products')->group(function () {
     Route::delete('/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 });
 
+Route::middleware(['auth', 'license'])->prefix('coupons')->group(function () {
+    Route::get('/', [CouponController::class, 'index'])->name('coupons.manage');
+    Route::get('/create', [CouponController::class, 'create'])->name('coupons.add');
+    Route::post('/', [CouponController::class, 'store'])->name('coupons.store');
+    Route::get('/{coupon}/edit', [CouponController::class, 'edit'])->name('coupons.edit');
+    Route::put('/{coupon}', [CouponController::class, 'update'])->name('coupons.update');
+    Route::delete('/{coupon}', [CouponController::class, 'destroy'])->name('coupons.destroy');
+});
+
 Route::middleware(['auth', 'license'])->prefix('addons')->group(function () {
     Route::get('/', [ProductAddonController::class, 'index'])->name('addons.manage');
     Route::get('/create', [ProductAddonController::class, 'create'])->name('addons.add');
@@ -258,12 +269,18 @@ Route::middleware(['auth', 'license'])->prefix('orders')->group(function () {
     Route::get('/{order}/available-branches', [OrderController::class, 'availableBranches'])->name('orders.available-branches');
     Route::patch('/{order}/assign-driver', [OrderController::class, 'assignDriver'])->name('orders.assign-driver');
     Route::patch('/{order}/change-branch', [OrderController::class, 'updateBranch'])->name('orders.change-branch');
+    Route::patch('/{order}/mark-paid', [OrderController::class, 'markPaid'])->name('orders.mark-paid');
     Route::get('/{order}/edit', [OrderController::class, 'edit'])->name('orders.edit');
     Route::put('/{order}', [OrderController::class, 'update'])->name('orders.update');
     Route::patch('/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
     Route::delete('/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
     Route::get('/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
     Route::get('/{order}/invoice/download', [OrderController::class, 'downloadInvoice'])->name('orders.invoice.download');
+});
+
+Route::middleware(['auth', 'license'])->prefix('admin-notifications')->group(function () {
+    Route::get('/', [AdminNotificationController::class, 'index'])->name('admin.notifications.index');
+    Route::get('/{notification}/open', [AdminNotificationController::class, 'open'])->name('admin.notifications.open');
 });
 Route::middleware(['auth', 'license'])->prefix('sidebar-management')->group(function () {
 

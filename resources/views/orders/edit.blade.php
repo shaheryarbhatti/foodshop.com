@@ -124,6 +124,12 @@
                                 <span class="text-muted">{{ __('vat_amount') }}</span>
                                 <span class="fw-bold" id="lblVat">{{ number_format($order->vat_amount, 2) }}</span>
                             </li>
+                            @if((float) $order->discount_amount > 0)
+                                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-0 px-0">
+                                    <span class="text-muted">{{ __('coupon_discount') }}{{ $order->coupon_code ? ' (' . $order->coupon_code . ')' : '' }}</span>
+                                    <span class="fw-bold text-success" id="lblDiscount">-{{ number_format($order->discount_amount, 2) }}</span>
+                                </li>
+                            @endif
                             <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0 pb-0">
                                 <span class="h5 mb-0">{{ __('grand_total') }}</span>
                                 <span class="h5 mb-0 text-primary" id="lblGrandTotal">{{ number_format($order->grand_total, 2) }}</span>

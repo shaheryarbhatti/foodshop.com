@@ -125,6 +125,9 @@
                                 <li><span>{{ __('subtotal') }}</span><strong id="lblSubtotal">{{ number_format($order->subtotal, 2) }}</strong></li>
                                 <li><span>{{ __('shipping_costs') }}</span><strong id="lblShipping">{{ number_format($order->shipping_costs, 2) }}</strong></li>
                                 <li><span>{{ __('vat_amount') }}</span><strong id="lblVat">{{ number_format($order->vat_amount, 2) }}</strong></li>
+                                @if((float) $order->discount_amount > 0)
+                                    <li><span>{{ __('coupon_discount') }}{{ $order->coupon_code ? ' (' . $order->coupon_code . ')' : '' }}</span><strong id="lblDiscount">-{{ number_format($order->discount_amount, 2) }}</strong></li>
+                                @endif
                                 <li><span>{{ __('grand_total') }}</span><strong id="lblGrandTotal">{{ number_format($order->grand_total, 2) }}</strong></li>
                                 <li><span>{{ __('additional_payment_required') }}</span><strong id="lblAdditionalCharges">0.00</strong></li>
                                 <li><span>{{ __('additional_tax') }}</span><strong id="lblAdditionalTax">0.00</strong></li>

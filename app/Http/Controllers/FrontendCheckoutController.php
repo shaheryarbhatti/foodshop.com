@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminNotification;
+use App\Models\Coupon;
 use App\Models\Customer;
 use App\Models\Country;
 use App\Models\Currency;
@@ -9,7 +11,9 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Setting;
 use App\Models\Tax;
+use App\Models\User;
 use App\Services\BranchDeliveryService;
+use App\Services\CouponService;
 use App\Services\OrderPricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -77,10 +81,11 @@ class FrontendCheckoutController extends Controller
             'last_name' => 'required|string|max:120',
             'email' => 'required|email|max:190',
             'phone' => 'required|string|max:40',
-        'order_type' => 'required|in:delivery,pick_up',
-        'payment_method' => 'required|string',
-        'cart_data' => 'required|json',
-    ]);
+            'order_type' => 'required|in:delivery,pick_up',
+            'payment_method' => 'required|string',
+            'cart_data' => 'required|json',
+            'coupon_code' => 'nullable|string|max:80',
+        ]);
 
         $customer = session()->has('frontend_customer_id')
             ? Customer::find(session('frontend_customer_id'))
@@ -114,7 +119,13 @@ class FrontendCheckoutController extends Controller
         }
 
         $orderPricingService = app(OrderPricingService::class);
-        $totals = $orderPricingService->calculate($cartItems, $validated['order_type'], $customer);
+        $couponResult = app(CouponService::class)->resolve($validated['coupon_code'] ?? null, $this->cartSubtotal($cartItems));
+        if (filled($validated['coupon_code']) && ! $couponResult['valid']) {
+            throw ValidationException::withMessages([
+                'coupon_code' => $couponResult['message'] ?: __('coupon_code_invalid'),
+            ]);
+        }
+        $totals = $orderPricingService->calculate($cartItems, $validated['order_type'], $customer, $couponResult);
         
         $grandTotal = $totals['grand_total'];
         $currentCurrency = $this->resolveCurrentCurrency();
@@ -162,6 +173,56 @@ class FrontendCheckoutController extends Controller
         ]);
     }
 
+    public function validateCoupon(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'coupon_code' => 'nullable|string|max:80',
+            'cart_data' => 'required|json',
+            'order_type' => 'nullable|in:delivery,pick_up',
+        ]);
+
+        $cartItems = json_decode($validated['cart_data'], true);
+        if (empty($cartItems) || ! is_array($cartItems)) {
+            return response()->json([
+                'valid' => false,
+                'message' => __('frontend_basket_empty'),
+            ], 422);
+        }
+
+        $customer = session()->has('frontend_customer_id')
+            ? Customer::find(session('frontend_customer_id'))
+            : null;
+
+        $subtotal = $this->cartSubtotal($cartItems);
+        $couponResult = app(CouponService::class)->resolve($validated['coupon_code'] ?? null, $subtotal);
+
+        if (! $couponResult['valid']) {
+            return response()->json([
+                'valid' => false,
+                'message' => $couponResult['message'] ?: __('coupon_code_invalid'),
+            ], 422);
+        }
+
+        $totals = app(OrderPricingService::class)->calculate(
+            $cartItems,
+            $validated['order_type'] ?? 'delivery',
+            $customer,
+            $couponResult
+        );
+
+        return response()->json([
+            'valid' => true,
+            'message' => $couponResult['message'],
+            'coupon' => [
+                'id' => $couponResult['coupon']->id,
+                'code' => $couponResult['coupon']->code,
+                'title' => $couponResult['coupon']->title,
+                'discount_amount' => $totals['discount_amount'],
+            ],
+            'totals' => $totals,
+        ]);
+    }
+
     public function submit(Request $request, BranchDeliveryService $branchDeliveryService): RedirectResponse
     {
         $validated = $request->validate([
@@ -181,6 +242,7 @@ class FrontendCheckoutController extends Controller
             'payment_method' => 'required|string',
             'cart_data' => 'required|json',
             'gateway_payment_intent_id' => 'nullable|string|max:255',
+            'coupon_code' => 'nullable|string|max:80',
         ]);
 
         if (($validated['customer_type'] ?? 'individual') !== 'company') {
@@ -201,11 +263,17 @@ class FrontendCheckoutController extends Controller
 
         $customer = session()->has('frontend_customer_id') ? Customer::find(session('frontend_customer_id')) : null;
         $orderPricingService = app(OrderPricingService::class);
-        $totals = $orderPricingService->calculate($cartItems, $validated['order_type'], $customer);
+        $couponResult = app(CouponService::class)->resolve($validated['coupon_code'] ?? null, $this->cartSubtotal($cartItems));
+        if (filled($validated['coupon_code']) && ! $couponResult['valid']) {
+            return back()->withErrors(['coupon_code' => $couponResult['message'] ?: __('coupon_code_invalid')])->withInput();
+        }
+
+        $totals = $orderPricingService->calculate($cartItems, $validated['order_type'], $customer, $couponResult);
         
         $subtotal = $totals['subtotal'];
         $shippingCosts = $totals['shipping_costs'];
         $vatAmount = $totals['vat_amount'];
+        $discountAmount = $totals['discount_amount'];
         $grandTotal = $totals['grand_total'];
         $deliverySummary = $totals['delivery_summary'];
 
@@ -213,7 +281,7 @@ class FrontendCheckoutController extends Controller
 
         $shippingFee = $deliverySummary['shipping_fee'] ?? null;
         $minOrderAmount = (float) ($shippingFee['min_order_amount'] ?? 0);
-        if ($minOrderAmount > 0 && $grandTotal < $minOrderAmount) {
+        if ($minOrderAmount > 0 && $subtotal < $minOrderAmount) {
             $currencyCode = strtoupper($currentCurrency?->code ?: 'USD');
             $localizedAmount = $currencyCode . ' ' . number_format($minOrderAmount, 2);
             return back()
@@ -283,12 +351,15 @@ class FrontendCheckoutController extends Controller
             $paymentPayload,
             $currentCurrency,
             $orderStatus,
-            $amountPaid
+            $amountPaid,
+            $couponResult,
+            $discountAmount
         ) {
             $order = Order::create([
                 'customer_id' => session('frontend_customer_id'),
                 'organization_id' => $deliverySummary['branch']['id'] ?? null,
                 'shipping_fee_id' => $deliverySummary['shipping_fee']['id'] ?? null,
+                'coupon_id' => $couponResult['coupon'] instanceof Coupon ? $couponResult['coupon']->id : null,
                 'delivery_distance_km' => $deliverySummary['distance_km'] ?? null,
                 'customer_latitude' => $deliverySummary['customer_latitude'] ?? null,
                 'customer_longitude' => $deliverySummary['customer_longitude'] ?? null,
@@ -302,6 +373,7 @@ class FrontendCheckoutController extends Controller
                 'postal_code' => $validated['postal_code'],
                 'country' => $validated['country'],
                 'different_delivery_address' => $validated['different_delivery_address'] ?? false,
+                'coupon_code' => $couponResult['code'],
                 'order_type' => $validated['order_type'],
                 'order_notes' => $validated['order_notes'],
                 'payment_method' => $paymentMethod['code'],
@@ -315,8 +387,13 @@ class FrontendCheckoutController extends Controller
                 'subtotal' => $subtotal,
                 'shipping_costs' => $shippingCosts,
                 'vat_amount' => $vatAmount,
+                'discount_amount' => $discountAmount,
                 'grand_total' => $grandTotal,
             ]);
+
+            if ($couponResult['coupon'] instanceof Coupon) {
+                $couponResult['coupon']->increment('used_count');
+            }
 
             foreach ($cartItems as $item) {
                 OrderItem::create([
@@ -332,25 +409,32 @@ class FrontendCheckoutController extends Controller
                 ]);
             }
 
+            $this->createAdminOrderNotifications($order);
+
             session()->forget([
                 'frontend_pending_payment_intent_id',
                 'frontend_pending_payment_method_code',
             ]);
 
-            return redirect()->route('frontend.checkout.success')
+            return redirect()->route('frontend.checkout.success', ['order' => $order->id])
                 ->with('frontend_checkout_success', true)
                 ->with('order_id', $order->id);
         });
     }
 
-    public function success(): View|RedirectResponse
+    public function success(Request $request): View|RedirectResponse
     {
-        if (! session('frontend_checkout_success')) {
+        $orderId = (int) ($request->query('order') ?: session('order_id'));
+        $hasSuccessAccess = session('frontend_checkout_success')
+            || ($orderId > 0 && Order::query()->whereKey($orderId)->exists());
+
+        if (! $hasSuccessAccess) {
             return redirect()->route('frontend.home');
         }
 
         return view('frontend.checkout-success', [
             'hasFrontendCustomer' => session()->has('frontend_customer_id'),
+            'successOrderId' => $orderId > 0 ? $orderId : null,
         ]);
     }
 
@@ -422,6 +506,65 @@ class FrontendCheckoutController extends Controller
             'public_key' => null,
             'secret_key' => null,
         ];
+    }
+
+    private function cartSubtotal(array $cartItems): float
+    {
+        return round(collect($cartItems)->sum(fn ($item) => (float) ($item['line_total'] ?? 0)), 2);
+    }
+
+    private function createAdminOrderNotifications(Order $order): void
+    {
+        $adminRecipients = User::query()
+            ->where('status', true)
+            ->where(function ($query) {
+                $query->whereDoesntHave('roles')
+                    ->orWhereHas('roles', function ($roleQuery) {
+                        $roleQuery->whereNotIn('name', ['Staff', 'Driver']);
+                    });
+            })
+            ->pluck('id');
+
+        $staffRecipients = collect();
+        if ($order->organization_id) {
+            $staffRecipients = User::query()
+                ->where('status', true)
+                ->whereHas('roles', fn ($query) => $query->whereRaw('LOWER(name) = ?', ['staff']))
+                ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $order->organization_id))
+                ->pluck('id');
+        }
+
+        $recipientIds = $adminRecipients
+            ->merge($staffRecipients)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($recipientIds->isEmpty()) {
+            return;
+        }
+
+        $customerName = trim($order->first_name . ' ' . $order->last_name);
+        $orderLabel = $order->order_number ?: ('#' . $order->id);
+        $branchName = optional($order->organization)->name ?: $order->city ?: 'Unknown branch';
+        $message = 'A new order ' . $orderLabel . ' was placed by ' . ($customerName !== '' ? $customerName : 'a customer') . ' for ' . $branchName . '.';
+
+        $timestamp = now();
+        $rows = $recipientIds->map(function (int $userId) use ($order, $orderLabel, $message, $timestamp) {
+            return [
+                'user_id' => $userId,
+                'order_id' => $order->id,
+                'type' => 'order_created',
+                'title' => 'New order ' . $orderLabel,
+                'message' => $message,
+                'is_read' => false,
+                'read_at' => null,
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+        })->all();
+
+        AdminNotification::insert($rows);
     }
 
     private function requiresGatewayCardForm(array $method): bool

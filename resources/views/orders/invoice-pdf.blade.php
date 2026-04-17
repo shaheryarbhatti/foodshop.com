@@ -169,6 +169,9 @@
                             <tr><td>{{ __('subtotal') }}</td><td style="text-align:right;">{{ $money($order->subtotal) }}</td></tr>
                             <tr><td>{{ __('shipping_fee') }}</td><td style="text-align:right;">{{ $money($order->shipping_costs) }}</td></tr>
                             <tr><td>{{ __('frontend_vat') }}</td><td style="text-align:right;">{{ $money($order->vat_amount) }}</td></tr>
+                            @if((float) $order->discount_amount > 0)
+                                <tr><td>{{ __('coupon_discount') }}{{ $order->coupon_code ? ' (' . $order->coupon_code . ')' : '' }}</td><td style="text-align:right;">-{{ $money($order->discount_amount) }}</td></tr>
+                            @endif
                             <tr class="total"><td>{{ __('grand_total') }}</td><td style="text-align:right;">{{ $money($order->grand_total) }}</td></tr>
                         </table>
                     </div>

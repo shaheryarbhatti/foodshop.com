@@ -15,15 +15,22 @@ class Order extends Model
     public const STATUS_CANCELLED = 'cancelled';
     public const STATUS_RETURNED = 'returned';
     public const STATUS_FAILED = 'failed';
+    public const DRIVER_OFFER_PENDING = 'pending';
+    public const DRIVER_OFFER_OFFERED = 'offered';
+    public const DRIVER_OFFER_ACCEPTED = 'accepted';
+    public const DRIVER_OFFER_REJECTED = 'rejected';
+    public const DRIVER_OFFER_STOPPED = 'stopped';
 
     protected $fillable = [
-        'order_number', 'customer_id', 'organization_id', 'shipping_fee_id', 'delivery_distance_km', 'customer_latitude', 'customer_longitude',
+        'order_number', 'customer_id', 'organization_id', 'shipping_fee_id', 'coupon_id', 'delivery_distance_km', 'customer_latitude', 'customer_longitude',
         'driver_id',
+        'driver_offer_status', 'driver_offer_driver_id', 'driver_offer_attempts', 'driver_offer_sent_at', 'driver_offer_responded_at',
+        'coupon_code',
         'first_name', 'last_name', 'company_name', 'email', 'phone', 
         'address', 'city', 'postal_code', 'country', 'different_delivery_address',
         'order_type', 'order_notes', 'payment_method', 'payment_gateway', 'payment_status', 'order_status',
         'payment_reference', 'payment_currency', 'payment_payload',
-        'subtotal', 'shipping_costs', 'vat_amount', 'grand_total',
+        'subtotal', 'shipping_costs', 'vat_amount', 'discount_amount', 'grand_total',
         'amount_paid', 'extra_amount_paid', 'admin_updated'
     ];
 
@@ -35,6 +42,10 @@ class Order extends Model
         'customer_longitude' => 'decimal:7',
         'admin_updated' => 'boolean',
         'extra_amount_paid' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'driver_offer_attempts' => 'integer',
+        'driver_offer_sent_at' => 'datetime',
+        'driver_offer_responded_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -93,6 +104,35 @@ class Order extends Model
         return static::STATUS_PENDING_PAYMENT;
     }
 
+    public function requiresOfflinePaymentConfirmationForDelivery(): bool
+    {
+        return in_array($this->payment_method, ['cash_on_delivery', 'bank_account'], true)
+            && ! in_array($this->payment_status, ['paid', 'success'], true);
+    }
+
+    public function canBeMarkedPaidManually(): bool
+    {
+        return in_array($this->payment_method, ['cash_on_delivery', 'bank_account'], true)
+            && ! in_array($this->payment_status, ['paid', 'success'], true);
+    }
+
+    public function isFinalizedForDriverDispatch(): bool
+    {
+        return in_array($this->order_status, [
+            static::STATUS_DELIVERED,
+            static::STATUS_CANCELLED,
+            static::STATUS_RETURNED,
+            static::STATUS_FAILED,
+        ], true);
+    }
+
+    public function canAutoOfferToDrivers(): bool
+    {
+        return ! $this->driver_id
+            && ! $this->isFinalizedForDriverDispatch()
+            && filled($this->organization_id);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class)->orderBy('id');
@@ -108,6 +148,11 @@ class Order extends Model
         return $this->belongsTo(ShippingFee::class);
     }
 
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
@@ -116,6 +161,11 @@ class Order extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function offeredDriver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_offer_driver_id');
     }
 
     private static function generateOrderNumber(Order $order): string

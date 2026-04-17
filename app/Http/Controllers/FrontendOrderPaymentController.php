@@ -122,10 +122,15 @@ class FrontendOrderPaymentController extends Controller
                     'extra_amount_paid' => null,
                 ]);
 
-                return redirect()->route('frontend.checkout.success')->with('frontend_checkout_success', true)->with('success', __('manual_payment_instruction_sent'));
+                return redirect()->route('frontend.checkout.success', ['order' => $order->id])
+                    ->with('frontend_checkout_success', true)
+                    ->with('order_id', $order->id)
+                    ->with('success', __('manual_payment_instruction_sent'));
             }
 
-            return redirect()->route('frontend.checkout.success')->with('frontend_checkout_success', true);
+            return redirect()->route('frontend.checkout.success', ['order' => $order->id])
+                ->with('frontend_checkout_success', true)
+                ->with('order_id', $order->id);
 
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
